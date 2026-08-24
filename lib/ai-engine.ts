@@ -569,8 +569,8 @@ function readingChecksFor(game: SimGame, action: SimAction) {
   }
   if (card.name === "伪娘团" && action.targetId !== undefined) {
     const target = game.players[action.targetId];
-    if (isCurrentlyNonbinary(actor)) checks.push({ playerId: actor.id, sourceName: card.name, requiredReading: "male" });
-    if (isCurrentlyNonbinary(target)) checks.push({ playerId: target.id, sourceName: card.name, requiredReading: "male" });
+    if (isCurrentlyNonbinary(actor)) checks.push({ playerId: actor.id, sourceName: card.name });
+    if (isCurrentlyNonbinary(target)) checks.push({ playerId: target.id, sourceName: card.name });
   }
   if (card.name === "职场 Dress Code" && !game.dei) {
     game.players.filter((player) => isCurrentlyNonbinary(player) && !player.items.includes("自由职业者"))
@@ -1146,11 +1146,18 @@ function resolvePlay(game: SimGame, action: SimAction, card: SimCard) {
     actor.joy += gainedJoy;
     recordScoreSource(actor, card.name, gainedJoy);
   } else if (card.name === "伪娘团" && target) {
-    if (resolvedCheckCount(action, actor) >= 2 && resolvedCheckCount(action, target) >= 2) {
+    const actorSide = simSide(actor);
+    const targetSide = simSide(target);
+    const actorChecks = resolvedCheckCount(action, actor);
+    const targetChecks = resolvedCheckCount(action, target);
+    if (actorSide === "male" && targetSide === "male" && actorChecks >= 2 && targetChecks >= 2) {
       actor.joy += 2;
       target.joy += 2;
       recordScoreSource(actor, card.name, 2);
       recordScoreSource(target, card.name, 2);
+      event(game, `${actor.name} 与 ${target.name} 连接【伪娘团】，双方均为蓝读取且检定数至少为 2，各获得 2 Joy。`);
+    } else {
+      event(game, `${actor.name} 对 ${target.name} 使用【伪娘团】，但未满足双方均为蓝读取且检定数至少为 2 的条件，未能获得 Joy。`);
     }
   } else if (card.name === "你pass吗？" && target) {
     const count = resolvedCheckCount(action, target);

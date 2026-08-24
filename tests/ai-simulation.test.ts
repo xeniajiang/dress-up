@@ -974,6 +974,44 @@ test("伪娘团只连接两名蓝读取且至少有两个检定呈现的玩家",
   noPartner.players[0].presents = [checked("solo-a"), checked("solo-b")];
   noPartner.players[0].hand = [{ id: "femboy-no-partner", name: "伪娘团", kind: "action" }];
   assert.ok(enumerateLegalActions(noPartner).some((candidate) => candidate.id.endsWith(":fizzle")), "没有同伴时只能空出");
+
+  // 非二元目标玩家在粉读取时被指定：可选择保持粉读取（拒绝切蓝，伪娘团不发分）或支付 1 Joy 切为蓝读取（获得 2 Joy）
+  let targetPink = createSimGame(["A", "B", "C", "D"]);
+  targetPink.active = 0;
+  targetPink.phase = "play";
+  targetPink.players[0].identity = "male";
+  targetPink.players[0].presents = [checked("tp-a1"), checked("tp-a2")];
+  targetPink.players[1].identity = "nonbinary";
+  targetPink.players[1].reading = "female";
+  targetPink.players[1].joy = 3;
+  targetPink.players[1].presents = [checked("tp-b1"), checked("tp-b2")];
+  targetPink.players[0].hand = [{ id: "tp-femboy", name: "伪娘团", kind: "action" }];
+
+  const playTargetPink = enumerateLegalActions(targetPink).find((candidate) => candidate.cardId === "tp-femboy" && candidate.targetId === 1)!;
+  assert.ok(playTargetPink, "可以对有 Joy 的非二元玩家打出伪娘团");
+  targetPink = applyLegalAction(targetPink, playTargetPink);
+  assert.ok(targetPink.readingPrompt, "应触发目标非二元玩家的读取判定");
+
+  const readingOptions = enumerateLegalActions(targetPink);
+  const keepOption = readingOptions.find((action) => action.type === "reading-keep");
+  const switchOption = readingOptions.find((action) => action.type === "reading-switch");
+  assert.ok(keepOption, "被指定方必须有权选择保持当前粉读取（取消/拒绝支付 Joy）");
+  assert.ok(switchOption, "被指定方可以支付 1 Joy 切换为蓝读取");
+
+  // 分支 1：选择保持粉读取 -> 伪娘团因未满足蓝读取条件不发分
+  let declinedGame = applyLegalAction(targetPink, keepOption!);
+  assert.equal(declinedGame.players[1].reading, "female");
+  assert.equal(declinedGame.players[1].joy, 3, "保持读取不消耗 Joy");
+  assert.equal(declinedGame.players[0].joy, 2, "出牌者不获得 Joy");
+  assert.equal(declinedGame.players[1].scoreSources?.length ?? 0, 0, "目标不获得伪娘团 Joy");
+
+  // 分支 2：选择支付 1 Joy 切换为蓝读取 -> 伪娘团成功发分
+  let acceptedGame = applyLegalAction(targetPink, switchOption!);
+  assert.equal(acceptedGame.players[1].reading, "male");
+  assert.equal(acceptedGame.players[1].joy, 4, "消耗 1 Joy 并获得 2 Joy（净增 1 Joy）");
+  assert.equal(acceptedGame.players[0].joy, 4, "出牌者获得 2 Joy");
+  assert.deepEqual(acceptedGame.players[0].scoreSources, [{ cardName: "伪娘团", joy: 2 }]);
+  assert.deepEqual(acceptedGame.players[1].scoreSources, [{ cardName: "伪娘团", joy: 2 }]);
 });
 
 test("空间主理人与伪娘团使用被三切持续状态修正后的当前检定数", () => {

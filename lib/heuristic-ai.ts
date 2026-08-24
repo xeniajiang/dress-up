@@ -352,7 +352,7 @@ function readingEffectValue(view: VisibleGame, player: VisiblePlayer, goal: SimG
     }
     return maximumEffectChecks(player) < 2 ? (player.joy <= 1 ? -2.7 : -1.5) : 0;
   }
-  if (check.sourceName === "伪娘团") return side === "male" ? 3.2 : -20;
+  if (check.sourceName === "伪娘团") return side === "male" ? 3.2 : 0;
   if (check.sourceName === "全女空间！") return side === "female" ? 1.35 : 0;
   return 0;
 }
