@@ -1578,6 +1578,29 @@ button.table-card[aria-disabled="true"] { cursor: default; }
   .event-drawer { top: 66px; }
 }
 
+@media (max-width: 760px) {
+  .public-row .deck-pile {
+    display: grid !important;
+    flex: 0 0 48px !important;
+    width: 48px !important;
+    min-width: 48px !important;
+    max-width: 48px !important;
+    justify-items: center;
+  }
+
+  .public-row .deck-pile .card-back {
+    display: grid !important;
+    width: 44px !important;
+    height: 66px !important;
+    min-width: 44px !important;
+  }
+
+  /* 手机上允许纵向滚页面，横向手势留给卡牌翻面 */
+  .action-flip-shell {
+    touch-action: pan-y;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .action-flip-card { transition-duration: .01ms; }
   .fresh-present, .removing-present, .joy-loss-pop, .auto-check-checked, .auto-check-unchecked, .auto-check-checked > b { animation-duration: .01ms; }
@@ -2170,5 +2193,566 @@ button.table-card[aria-disabled="true"] { cursor: default; }
 
   .rule-drawer {
     width: min(94vw, 420px);
+  }
+}
+
+/* =========================================================
+   MOBILE PLAYABLE LAYOUT — final override
+   Keep this at the very end of globals.css
+   ========================================================= */
+@media (max-width: 760px) {
+  html,
+  body {
+    width: 100%;
+    overflow-x: hidden;
+  }
+
+  .tabletop-shell {
+    width: 100%;
+    height: auto;
+    min-height: 100dvh;
+    padding: 70px 8px 28px;
+    overflow-x: hidden;
+    overflow-y: auto;
+    overscroll-behavior: auto;
+  }
+
+  .tabletop-header {
+    width: 100%;
+    min-width: 0;
+    height: 62px;
+    padding: 0 10px;
+  }
+
+  .tabletop-header .mini-logo strong {
+    font-size: 22px;
+  }
+
+  .table-utilities {
+    gap: 5px;
+  }
+
+  .table-utilities button {
+    width: 34px;
+    height: 34px;
+  }
+
+  /* =====================================================
+     Important:
+     abandon the desktop 3-column tabletop on mobile
+     ===================================================== */
+
+  .tabletop-arena {
+    width: 100% !important;
+    min-width: 0 !important;
+    margin: 0 !important;
+
+    display: flex !important;
+    flex-direction: column;
+    gap: 8px;
+
+    transform: none !important;
+  }
+
+  /* Public market goes first */
+  .public-table {
+    order: 1;
+
+    width: 100%;
+    min-width: 0;
+    min-height: 0;
+
+    display: block;
+    position: relative;
+
+    padding: 4px 0 14px;
+  }
+
+  /* Restore player-grid as a real container.
+     Desktop uses display: contents. */
+  .tabletop-arena .player-grid {
+    order: 2;
+
+    width: 100%;
+    min-width: 0;
+
+    display: grid !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  /* Forget desktop grid coordinates */
+  .player-zone,
+  .player-zone.player-0,
+  .player-zone.player-1,
+  .player-zone.player-2,
+  .player-zone.player-3 {
+    grid-column: auto !important;
+    grid-row: auto !important;
+
+    width: 100%;
+    min-width: 0;
+    height: 150px;
+    min-height: 150px;
+
+    padding: 7px 3px;
+  }
+
+  /* =====================================================
+     Public draw area
+     ===================================================== */
+
+  .public-row {
+    width: 100%;
+    min-width: 0;
+
+    display: grid;
+    grid-template-columns: 42px minmax(0, 1fr);
+    gap: 7px;
+
+    align-items: center;
+  }
+
+  .public-row .deck-pile {
+    width: 42px;
+    min-width: 0;
+  }
+
+  .public-row .deck-pile .card-back {
+    width: 38px;
+    height: 58px;
+    border-radius: 6px;
+  }
+
+  .public-row .deck-pile > span {
+    margin-top: 4px;
+    font-size: 8px;
+  }
+
+  .public-row .market-cards {
+    width: 100% !important;
+    min-width: 0;
+
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 6px;
+  }
+
+  .public-row .table-card {
+    width: 100%;
+    min-width: 0;
+    height: 158px;
+    min-height: 158px;
+    aspect-ratio: auto;
+
+    padding: 7px;
+    border-radius: 8px;
+  }
+
+  .public-row .table-card:nth-child(2),
+  .public-row .table-card:nth-child(3) {
+    transform: none;
+  }
+
+  .public-row .table-card.is-actionable:hover {
+    transform: none;
+  }
+
+  .public-row .single-card-face h3 {
+    font-size: 9px;
+    line-height: 1.1;
+  }
+
+  .public-row .single-card-face > small {
+    font-size: 6px;
+  }
+
+  .public-row .single-card-face .card-art {
+    font-size: 27px;
+  }
+
+  /* Split cards need much tighter typography */
+  .public-row .split-card-face {
+    margin: -7px;
+  }
+
+  .public-row .split-card-face > header {
+    padding: 5px 4px;
+  }
+
+  .public-row .split-card-face > header strong {
+    font-size: 8px;
+  }
+
+  .public-row .split-card-face .split-sections > section {
+    padding: 3px 4px;
+    grid-template-columns: 13px minmax(0, 1fr);
+    gap: 3px;
+  }
+
+  .public-row .split-card-face .split-sections > section b {
+    width: 13px;
+    height: 13px;
+    font-size: 6px;
+  }
+
+  .public-row .split-card-face .split-sections > section span {
+    font-size: 6.5px;
+    line-height: 1.1;
+  }
+
+  /* =====================================================
+     Venue
+     ===================================================== */
+
+  .public-table:has(.venue-object) {
+    padding-top: 84px;
+  }
+
+  .venue-object {
+    top: 0;
+    left: 0;
+    transform: none;
+
+    width: 100%;
+    max-width: none;
+    min-height: 70px;
+  }
+
+  .venue-object > i.venue-object-art {
+    flex-basis: 90px;
+    min-height: 54px;
+  }
+
+  .public-table:has(.venue-object) .public-row {
+    top: 0;
+  }
+
+  /* =====================================================
+     Players
+     ===================================================== */
+
+  .player-core {
+    grid-template-columns: 34px minmax(0, 1fr) auto;
+    gap: 5px;
+  }
+
+  .avatar-placeholder {
+    width: 32px;
+    height: 32px;
+  }
+
+  .player-name h2 {
+    font-size: 12px;
+  }
+
+  .player-name-line {
+    margin-bottom: 3px;
+  }
+
+  .identity-language {
+    gap: 3px;
+  }
+
+  .identity-language span,
+  .identity-language i {
+    padding: 3px 5px;
+    font-size: 7px;
+  }
+
+  .joy-token b,
+  .joy-token span {
+    font-size: 15px;
+  }
+
+  .player-objects {
+    min-height: 51px;
+    margin-top: 7px;
+    gap: 3px;
+  }
+
+  .mini-object {
+    flex: 0 0 39px;
+    width: 39px;
+    height: 49px;
+    padding: 3px 2px;
+  }
+
+  .mini-object > i {
+    font-size: 16px;
+  }
+
+  .mini-object > small {
+    font-size: 6px;
+  }
+
+  .goal-object {
+    width: 31px;
+    height: 43px;
+    bottom: 2px;
+  }
+
+  .hand-fan {
+    width: 53px;
+    height: 40px;
+  }
+
+  /* =====================================================
+     Human personal area
+     ===================================================== */
+
+  .personal-table {
+    width: 100% !important;
+    min-width: 0 !important;
+
+    margin: 10px 0 0;
+    padding-left: 0 !important;
+
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 8px;
+
+    align-items: stretch;
+  }
+
+  .goal-card-object {
+    width: 100%;
+    min-height: 0;
+    transform: none;
+  }
+
+  .self-status {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+  }
+
+  /* Hand is horizontally scrollable */
+  .own-hand {
+    width: 100%;
+    min-width: 0;
+    min-height: 190px;
+
+    justify-content: flex-start;
+    align-items: flex-end;
+    gap: 8px;
+
+    padding: 6px 4px 14px;
+
+    overflow-x: auto;
+    overflow-y: hidden;
+
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior-x: contain;
+  }
+
+  .own-card {
+    flex: 0 0 118px;
+    width: 118px;
+    min-width: 118px;
+    max-width: 118px;
+
+    height: 176px;
+    min-height: 176px;
+  }
+
+  .own-card:not(:disabled):hover,
+  .own-card[aria-disabled="true"]:hover {
+    transform: none;
+  }
+
+  .own-card.is-selected {
+    transform: translateY(-7px);
+  }
+
+  /* =====================================================
+     Overlays
+     ===================================================== */
+
+  .rule-drawer {
+    width: 94vw;
+    max-width: 420px;
+  }
+
+  .board-move-hint {
+    left: 8px;
+    right: 8px;
+    width: auto;
+    transform: none;
+    flex-wrap: wrap;
+  }
+}
+
+/* MOBILE: force public market to use full viewport width */
+@media (max-width: 760px) {
+  .tabletop-arena > .public-table {
+    order: -1 !important;
+
+    width: calc(100vw - 16px) !important;
+    min-width: calc(100vw - 16px) !important;
+    max-width: calc(100vw - 16px) !important;
+
+    margin: 0 !important;
+    padding: 8px 0 14px !important;
+
+    display: block !important;
+    align-self: center !important;
+
+    position: relative !important;
+  }
+
+  .public-table .public-row {
+    width: 100% !important;
+    min-width: 0 !important;
+
+    display: flex !important;
+    flex-direction: row !important;
+    align-items: center !important;
+
+    gap: 7px !important;
+
+    position: static !important;
+    top: auto !important;
+  }
+
+  /* 左边牌库 */
+  .public-row .deck-pile {
+    flex: 0 0 48px !important;
+
+    width: 48px !important;
+    min-width: 48px !important;
+    max-width: 48px !important;
+  }
+
+  .public-row .deck-pile .card-back {
+    width: 44px !important;
+    height: 66px !important;
+
+    min-width: 44px !important;
+  }
+
+  /* 右边三张公共牌 */
+  .public-row .market-cards {
+    flex: 1 1 0 !important;
+
+    width: auto !important;
+    min-width: 0 !important;
+    max-width: none !important;
+
+    display: grid !important;
+    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+
+    gap: 6px !important;
+    margin: 0 !important;
+  }
+
+  .public-row .market-cards > .table-card {
+    width: 100% !important;
+    min-width: 0 !important;
+    max-width: none !important;
+
+    height: 158px !important;
+    min-height: 158px !important;
+
+    aspect-ratio: auto !important;
+
+    margin: 0 !important;
+    transform: none !important;
+  }
+
+  /* 有场地时也别把公区挤坏 */
+  .public-table:has(.venue-object) .public-row {
+    position: static !important;
+    top: auto !important;
+  }
+}
+
+/* 小屏：防止呈现 / 标记文字溢出边框 */
+@media (max-width: 1100px) {
+  .mini-object {
+    min-width: 0;
+    overflow: hidden;
+  }
+
+  .mini-object > small {
+    width: 100%;
+    max-width: 100%;
+
+    font-size: 6px;
+    line-height: 1.05;
+
+    white-space: normal;
+    overflow-wrap: anywhere;
+    word-break: break-word;
+
+    text-align: center;
+    overflow: hidden;
+
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+  }
+}
+
+@media (max-width: 1100px) {
+  .mini-object {
+    height: 58px;
+    min-height: 58px;
+    padding: 4px 3px 5px;
+    gap: 2px;
+  }
+
+  .mini-object > i {
+    font-size: 13px;
+    line-height: 1;
+    flex-shrink: 0;
+  }
+
+  .mini-object > small {
+    font-size: 5.4px;
+    line-height: 1.15;
+    max-height: 2.3em;
+    padding: 0 1px;
+
+    white-space: normal;
+    overflow-wrap: anywhere;
+    text-align: center;
+    overflow: hidden;
+
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+  }
+}
+
+/* 小屏：场地独占一行，位于公共牌区上方 */
+@media (max-width: 1100px) {
+  .public-table:has(.venue-object) {
+    padding-top: 0 !important;
+  }
+
+  .public-table .venue-object {
+    position: static !important;
+    top: auto !important;
+    left: auto !important;
+    transform: none !important;
+
+    width: 100% !important;
+    max-width: none !important;
+    min-height: 64px;
+
+    margin: 0 0 10px 0;
+    z-index: auto;
+  }
+
+  .public-table:has(.venue-object) .public-row {
+    position: static !important;
+    top: auto !important;
+  }
+
+  .venue-object > i.venue-object-art {
+    flex: 0 0 82px;
+    min-height: 58px;
   }
 }

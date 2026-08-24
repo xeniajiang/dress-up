@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState, type DragEvent, type MouseEvent, type ReactNode, type WheelEvent } from "react";
+import { useCallback, useEffect, useMemo, useState, type DragEvent, type MouseEvent, type ReactNode, type TouchEvent, type WheelEvent } from "react";
 import {
   applyLegalAction,
   compareFinalStanding,
@@ -452,23 +452,80 @@ function CardArtworkFace({ card }: { card: SimCard }) {
 
 function CardFace({ card }: { card: SimCard }) {
   const [showEffect, setShowEffect] = useState(false);
+  const [touchStartX, setTouchStartX] = useState<number | null>(null);
+
   const flippable = hasEffectFace(card);
-  const hasArtworkBack = card.kind === "venue" || isTernaryEffectCard(card) || isSplitCard(card);
+  const hasArtworkBack =
+    card.kind === "venue" ||
+    isTernaryEffectCard(card) ||
+    isSplitCard(card);
+
   if (!flippable) return <CardFront card={card} />;
 
   const handleWheel = (event: WheelEvent<HTMLDivElement>) => {
     if (event.deltaY === 0) return;
+
     event.preventDefault();
     event.stopPropagation();
+
     setShowEffect(event.deltaY > 0);
   };
 
-  return <div className="action-flip-shell" onWheel={handleWheel}>
-    <div className={`action-flip-card ${showEffect ? "show-effect" : ""}`}>
-      <div className="action-flip-face action-flip-front"><CardFront card={card} /></div>
-      <div className={`action-flip-face action-flip-back ${hasArtworkBack ? "artwork-flip-back" : ""}`}>{hasArtworkBack ? <CardArtworkFace card={card} /> : <><small>牌效</small><h3>{card.name}</h3><p>{cardEffectCopy(card.name)}</p></>}</div>
+  const handleTouchStart = (event: TouchEvent<HTMLDivElement>) => {
+    if (event.touches.length !== 1) return;
+    setTouchStartX(event.touches[0].clientX);
+  };
+
+  const handleTouchEnd = (event: TouchEvent<HTMLDivElement>) => {
+    if (touchStartX === null) return;
+
+    const endX = event.changedTouches[0]?.clientX;
+    setTouchStartX(null);
+
+    if (endX === undefined) return;
+
+    const deltaX = touchStartX - endX;
+
+    // 小幅移动仍视为普通点击，让外层卡牌按钮正常工作
+    if (Math.abs(deltaX) < 30) return;
+
+    event.preventDefault();
+    event.stopPropagation();
+
+    // 左滑看牌效，右滑回正面
+    setShowEffect(deltaX > 0);
+  };
+
+  return (
+    <div
+      className="action-flip-shell"
+      onWheel={handleWheel}
+      onTouchStart={handleTouchStart}
+      onTouchEnd={handleTouchEnd}
+    >
+      <div className={`action-flip-card ${showEffect ? "show-effect" : ""}`}>
+        <div className="action-flip-face action-flip-front">
+          <CardFront card={card} />
+        </div>
+
+        <div
+          className={`action-flip-face action-flip-back ${
+            hasArtworkBack ? "artwork-flip-back" : ""
+          }`}
+        >
+          {hasArtworkBack ? (
+            <CardArtworkFace card={card} />
+          ) : (
+            <>
+              <small>牌效</small>
+              <h3>{card.name}</h3>
+              <p>{cardEffectCopy(card.name)}</p>
+            </>
+          )}
+        </div>
+      </div>
     </div>
-  </div>;
+  );
 }
 
 function DecisionOverlay({
