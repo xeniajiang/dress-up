@@ -3038,3 +3038,54 @@ button.table-card[aria-disabled="true"] { cursor: default; }
     min-height: 60px !important;
   }
 }
+
+/* =====================================================
+   Mobile: own hand directly below the public market
+   (shared renderOwnHand -> .mobile-own-hand)
+   ===================================================== */
+.mobile-own-hand {
+  display: none;
+}
+
+@media (max-width: 760px) {
+  .tabletop-arena .public-table {
+    order: 1 !important;
+  }
+
+  .tabletop-arena .mobile-own-hand {
+    order: 2 !important;
+
+    display: flex !important;
+
+    width: 100% !important;
+    min-width: 0 !important;
+
+    gap: 8px !important;
+    padding: 8px 4px 14px !important;
+
+    justify-content: flex-start !important;
+    align-items: flex-end !important;
+
+    overflow-x: auto !important;
+    overflow-y: hidden !important;
+
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior-x: contain;
+  }
+
+  .tabletop-arena .player-grid {
+    order: 3 !important;
+  }
+
+  .desktop-own-hand {
+    display: none !important;
+  }
+
+  .mobile-own-hand .own-card {
+    flex: 0 0 118px !important;
+
+    width: 118px !important;
+    min-width: 118px !important;
+    max-width: 118px !important;
+  }
+}

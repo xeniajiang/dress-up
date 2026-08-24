@@ -928,6 +928,62 @@ function GameTable({ mode, names, onExit }: { mode: Mode; names: string[]; onExi
     );
   }
 
+  const renderOwnHand = (extraClass = "") => (
+    <div className={`own-hand ${extraClass}`}>
+      {forcedHumanCard && (
+        <button
+          className={`own-card table-card forced-play-card ${cardClass(
+            forcedHumanCard.kind,
+            forcedHumanCard.checked
+          )} ${
+            effectiveSelectedCardId === forcedHumanCard.id ? "is-selected" : ""
+          } ${
+            game.dei && forcedHumanCard.name === "职场 Dress Code"
+              ? "is-dei-disabled"
+              : ""
+          }`}
+          onClick={() => selectHandCard(forcedHumanCard.id)}
+        >
+          <em>立即打出</em>
+          <CardFace card={forcedHumanCard} />
+        </button>
+      )}
+
+      {humanPlayer.hand.map((card) => {
+        const hasLegalPlay = playActions.some(
+          (action) => action.cardId === card.id
+        );
+        const selectable =
+          isHumanDecision && game.phase === "play" && hasLegalPlay;
+        const selected = effectiveSelectedCardId === card.id;
+
+        return (
+          <button
+            className={`own-card table-card ${cardClass(
+              card.kind,
+              card.checked
+            )} ${selected ? "is-selected" : ""} ${
+              game.dei && card.name === "职场 Dress Code"
+                ? "is-dei-disabled"
+                : ""
+            }`}
+            aria-disabled={!selectable}
+            tabIndex={selectable ? 0 : -1}
+            onClick={() => selectHandCard(card.id)}
+            title={
+              selected && noTargetPlayActions.length
+                ? "再次点击打出"
+                : undefined
+            }
+            key={card.id}
+          >
+            <CardFace card={card} />
+          </button>
+        );
+      })}
+    </div>
+  );
+
   return (
     <main className="prototype-shell tabletop-shell">
       <header className="tabletop-header">
@@ -1035,6 +1091,8 @@ function GameTable({ mode, names, onExit }: { mode: Mode; names: string[]; onExi
             })}</div>
           </div>
         </section>
+
+        {mode === "solo" && renderOwnHand("mobile-own-hand")}
       </section>
 
       {mode === "solo" && <section className="personal-table">
@@ -1045,14 +1103,7 @@ function GameTable({ mode, names, onExit }: { mode: Mode; names: string[]; onExi
 
          <div className="self-status"><IdentityHistoryStack player={humanPlayer} superseded={humanHasDistinctTempIdentity} />{humanHasDistinctTempIdentity && <span className={`temp-identity-token identity-${humanPlayer.tempIdentity}`} title="临时身份持续至自己的下回合结束"><strong aria-label="临时身份">◷</strong>{humanPlayer.tempIdentity === "male" ? "男性" : humanPlayer.tempIdentity === "female" ? "女性" : `非二元 · ${humanReading === "male" ? "蓝" : "粉"}读取`}</span>}<b className="self-check-count" aria-label={`${simChecks(humanPlayer)} 个检定`}><CheckPip />{simChecks(humanPlayer)}</b><b>Joy {humanPlayer.joy} ☺</b></div>
 
-         <div className="own-hand">
-          {forcedHumanCard && <button className={`own-card table-card forced-play-card ${cardClass(forcedHumanCard.kind, forcedHumanCard.checked)} ${effectiveSelectedCardId === forcedHumanCard.id ? "is-selected" : ""} ${game.dei && forcedHumanCard.name === "职场 Dress Code" ? "is-dei-disabled" : ""}`} onClick={() => selectHandCard(forcedHumanCard.id)}><em>立即打出</em><CardFace card={forcedHumanCard} /></button>}
-          {humanPlayer.hand.map((card) => {
-          const hasLegalPlay = playActions.some((action) => action.cardId === card.id);
-          const selectable = isHumanDecision && game.phase === "play" && hasLegalPlay;
-          const selected = effectiveSelectedCardId === card.id;
-          return <button className={`own-card table-card ${cardClass(card.kind, card.checked)} ${selected ? "is-selected" : ""} ${game.dei && card.name === "职场 Dress Code" ? "is-dei-disabled" : ""}`} aria-disabled={!selectable} tabIndex={selectable ? 0 : -1} onClick={() => selectHandCard(card.id)} title={selected && noTargetPlayActions.length ? "再次点击打出" : undefined} key={card.id}><CardFace card={card} /></button>;
-        })}</div>
+         {renderOwnHand("desktop-own-hand")}
       </section>}
 
       {mode === "spectate" && <div className="spectator-controls">
