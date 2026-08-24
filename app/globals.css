@@ -1920,3 +1920,255 @@ button.table-card[aria-disabled="true"] { cursor: default; }
 .ai-reveal-front .split-card-face .split-sections > section { padding: 3px 4px; grid-template-columns: 13px minmax(0,1fr); gap: 3px; }
 .ai-reveal-front .split-card-face .split-sections > section b { width: 13px; height: 13px; font-size: 6px; }
 .ai-reveal-front .split-card-face .split-sections > section span { font-size: 6px; line-height: 1.12; }
+
+/* =========================================================
+   Mobile playable layout
+   ========================================================= */
+@media (max-width: 760px) {
+  .tabletop-shell {
+    width: 100%;
+    height: auto;
+    min-height: 100dvh;
+    padding: 70px 10px 24px;
+    overflow-x: hidden;
+    overflow-y: auto;
+    overscroll-behavior-y: auto;
+  }
+
+  .tabletop-header {
+    width: 100%;
+    min-width: 0;
+    padding: 0 12px;
+  }
+
+  /* Turn the desktop tabletop into a vertical mobile board */
+  .tabletop-arena {
+    width: 100%;
+    min-width: 0;
+    margin: 0;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-rows: auto auto auto;
+    gap: 8px 10px;
+    transform: none;
+  }
+
+  /* Public draw area comes first */
+  .public-table {
+    grid-column: 1 / -1;
+    grid-row: 1;
+    min-height: 210px;
+    width: 100%;
+    padding: 4px 0 10px;
+  }
+
+  .public-row {
+    width: 100%;
+    grid-template-columns: 44px minmax(0, 1fr);
+    gap: 8px;
+  }
+
+  .public-row .deck-pile .card-back {
+    width: 40px;
+  }
+
+  .public-row .deck-pile > span {
+    margin-top: 6px;
+    font-size: 8px;
+  }
+
+  .public-row .market-cards {
+    width: 100%;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 6px;
+  }
+
+  .public-row .table-card {
+    width: 100%;
+    height: 170px;
+    min-height: 0;
+    padding: 7px;
+    border-radius: 9px;
+  }
+
+  .public-row .table-card.is-actionable:hover {
+    transform: none;
+  }
+
+  .public-row .single-card-face h3 {
+    font-size: 9px;
+    line-height: 1.15;
+  }
+
+  .public-row .single-card-face > small {
+    font-size: 6px;
+  }
+
+  .public-row .single-card-face .card-art {
+    font-size: 30px;
+  }
+
+  .public-row .split-card-face {
+    margin: -7px;
+  }
+
+  .public-row .split-card-face section {
+    padding: 5px 3px;
+    gap: 2px;
+  }
+
+  .public-row .split-card-face section b,
+  .public-row .split-card-face section span {
+    font-size: 6.5px;
+    line-height: 1.2;
+  }
+
+  .public-row .split-art {
+    min-height: 38px;
+    padding: 3px;
+  }
+
+  .public-row .split-art i {
+    font-size: 19px;
+  }
+
+  .public-row .split-art strong {
+    font-size: 8px;
+  }
+
+  /* Venue should not push the market off-screen */
+  .venue-object {
+    width: calc(100% - 12px);
+    max-width: none;
+  }
+
+  /* Two opponents per row */
+  .player-zone {
+    width: 100%;
+    height: 155px;
+    min-height: 155px;
+    padding: 7px 3px;
+  }
+
+  .player-zone.player-0 {
+    grid-column: 1;
+    grid-row: 2;
+  }
+
+  .player-zone.player-1 {
+    grid-column: 2;
+    grid-row: 2;
+  }
+
+  .player-zone.player-2 {
+    grid-column: 1;
+    grid-row: 3;
+  }
+
+  .player-zone.player-3 {
+    grid-column: 2;
+    grid-row: 3;
+  }
+
+  .player-core {
+    grid-template-columns: 34px minmax(0, 1fr) auto;
+    gap: 5px;
+  }
+
+  .player-name h2 {
+    font-size: 12px;
+  }
+
+  .identity-language span,
+  .identity-language i {
+    padding: 3px 5px;
+    font-size: 7px;
+  }
+
+  .player-objects {
+    min-height: 54px;
+    margin-top: 7px;
+  }
+
+  .mini-object {
+    flex: 0 0 42px;
+    height: 52px;
+  }
+
+  .mini-object > i {
+    font-size: 17px;
+  }
+
+  .mini-object > small {
+    font-size: 6px;
+  }
+
+  /* Human area */
+  .personal-table {
+    width: 100%;
+    min-width: 0;
+    margin: 12px 0 0;
+    padding-left: 0;
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 10px;
+    align-items: stretch;
+  }
+
+  .goal-card-object {
+    min-height: 0;
+    transform: none;
+  }
+
+  .self-status {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+  }
+
+  /* Hand remains card-like, but scrolls horizontally */
+  .own-hand {
+    width: 100%;
+    min-height: 190px;
+    justify-content: flex-start;
+    align-items: flex-end;
+    gap: 8px;
+    padding: 8px 4px 16px;
+    overflow-x: auto;
+    overflow-y: visible;
+    overscroll-behavior-x: contain;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .own-card {
+    flex: 0 0 120px;
+    width: 120px;
+    min-width: 120px;
+    max-width: 120px;
+    min-height: 180px;
+    height: 180px;
+  }
+
+  .own-card:not(:disabled):hover,
+  .own-card[aria-disabled="true"]:hover {
+    transform: none;
+  }
+
+  .own-card.is-selected {
+    transform: translateY(-8px);
+  }
+
+  /* Full-width overlays on phone */
+  .board-move-hint {
+    left: 10px;
+    right: 10px;
+    width: auto;
+    transform: none;
+    flex-wrap: wrap;
+  }
+
+  .rule-drawer {
+    width: min(94vw, 420px);
+  }
+}
