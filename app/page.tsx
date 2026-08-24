@@ -1172,7 +1172,118 @@ function GameTable({ mode, names, onExit }: { mode: Mode; names: string[]; onExi
         </section>
       </DecisionOverlay>}
 
-      {ruleOpen && <div className="drawer-shade"><aside className="rule-drawer"><header><div><span>RULE ENGINE · V0.1</span><h2>原型说明</h2></div><button onClick={() => setRuleOpen(false)}>×</button></header><section><b>拿 1 → 打 1</b><p>规则引擎枚举合法动作；AI 只能在这些动作里评分选择。其他 AI 的目标和手牌不会进入其可见状态。</p></section><section><b>终局与破平</b><p>目标分加上剩余 Joy 得到总分。总分相同时，剩余 Joy 较多者胜；若 Joy 仍相同，则并列。</p></section><section><b>启发式优先级</b><p>自己的目标完成度 ＞ 明显互卡 ＞ Joy 管理 ＞ 粗略目标推理 ＞ 小随机扰动。</p></section><section><b>长期身份历史</b><p>每次长期身份改变时，将新身份标记叠在原身份之上；最上层为当前长期身份，下方历史保持公开。临时身份不进入此栈。【detrans】移除最上层并恢复下一层；【改好证了！】阻止身份层的压入与弹出。</p></section><section><b>非二元读取</b><p>每次二切或社会环境即将判断非二元玩家的身份前，该玩家都可支付 1 Joy 永久切换蓝/粉读取，然后再结算。</p></section><section><b>enby 计分</b><p>首次触发任意白色牌效终局 +6。小件包括：宽大卫衣或亚文化裙裤（衣物类只计其中 1 件）、吉他、小证；每件终局 +2，最多计算 3 件、共 +6。</p></section><section><b>小证</b><p>当【她】将补入公共牌列时，可弃置 1 张手牌将【她】换入手牌并消耗截获能力；放行不消耗能力。小证物件始终保留用于计分。</p></section><section><b>真心话大冒险</b><p>目标可支付 2 Joy 反制；AI 会权衡目标泄露风险、当前领先程度、反查收益与 Joy 储备。</p></section><section><b>AI 记忆</b><p>目标猜测来自公开行为。真心话可建立确定记忆；换一种活法公开交换目标牌，已知目标信息会随目标牌一起移动。</p></section><section><b>规则忠实</b><p>不替设计者改牌。歧义只写入终局 warning，并按最窄字面实现。</p></section></aside></div>}
+     {ruleOpen && (
+  <div className="drawer-shade">
+    <aside className="rule-drawer">
+      <header>
+        <div>
+          <span>HOW TO PLAY</span>
+          <h2>怎么玩？</h2>
+        </div>
+        <button onClick={() => setRuleOpen(false)}>×</button>
+      </header>
+
+      <section>
+        <b>dress-up! · 4 人隐藏目标策略卡牌游戏</b>
+        <p>
+          每名玩家都有一个秘密目标。通过拿牌和出牌，改变自己与其他玩家的呈现、身份、Joy 和桌面状态。
+          主牌堆耗尽并完成最后一轮后公开目标。
+        </p>
+        <p><strong>总分 = 目标得分 + 剩余 Joy</strong>，最高分获胜。</p>
+      </section>
+
+      <section>
+        <b>你的回合：拿 1 → 打 1</b>
+        <p>
+          先从牌堆顶暗摸 1 张，或从公共牌列拿 1 张；公共牌列会补至 3 张。
+          然后从手牌打出 1 张牌，选择合法目标并完整结算。
+        </p>
+        <p>如果一张牌当前没有任何合法目标，可以直接弃置它并结束回合。</p>
+      </section>
+
+      <section>
+        <b>三类牌</b>
+        <p>
+          <strong>呈现牌</strong>留在玩家面前；部分呈现带有 ✦，部分属于服装。
+          <br />
+          <strong>行动牌</strong>结算效果后弃置；部分行动会留下物件或标记。
+          <br />
+          <strong>场地牌</strong>影响全桌；场上同时最多存在 1 个场地。
+        </p>
+      </section>
+
+      <section>
+        <b>身份与读取</b>
+        <p>
+          🔵 男性使用二切牌的蓝色效果；🩷 女性使用粉色效果。
+        </p>
+        <p>
+          ⬜ 非二元玩家拥有公开的二元读取方向：⬜→🔵 或 ⬜→🩷。
+          遇到二切效果时按当前读取结算；每次判断前，可支付 1 Joy 永久翻转读取方向。
+          遇到三切牌时直接使用白色效果。
+        </p>
+        <p>
+          临时身份会影响当前牌效判断；终局目标仍根据长期身份计分。
+        </p>
+      </section>
+
+      <section>
+        <b>呈现、✦ 与服装</b>
+        <p>
+          呈现可以打给自己或其他合法玩家。同一玩家不能同时拥有两张同名呈现。
+        </p>
+        <p>
+          <strong>检定数 = 当前拥有的 ✦ 呈现数量。</strong>
+        </p>
+        <p>
+          每名玩家同时只能拥有 1 件服装；获得新服装时，旧服装立即弃置。
+          已存在的呈现可以被牌效移动，移动不视为重新打出。
+        </p>
+      </section>
+
+      <section>
+        <b>Joy</b>
+        <p>
+          Joy 是公开资源，可以获得、支付或失去，最低为 0。
+          无法支付要求的 Joy 时，不能选择该支付。
+        </p>
+        <p>游戏结束时，每剩余 <strong>1 Joy = 1 分</strong>。</p>
+      </section>
+
+      <section>
+        <b>公开与隐藏</b>
+        <p>
+          <strong>公开：</strong>长期身份、临时身份、读取方向、Joy、呈现、物件与标记、场地、手牌数量。
+        </p>
+        <p>
+          <strong>隐藏：</strong>手牌内容、秘密目标、牌堆内容。
+        </p>
+      </section>
+
+      <section>
+        <b>游戏结束</b>
+        <p>
+          主牌堆首次耗尽后，继续到所有玩家完成相同数量的回合，然后公开目标并计分。
+        </p>
+        <p>
+          <strong>总分 = 目标得分 + 剩余 Joy。</strong>
+          总分相同时，Joy 更多者领先；Joy 仍相同则并列。
+        </p>
+      </section>
+
+      <section>
+        <b>第一次玩，只记这五句</b>
+        <p>
+          <strong>拿 1，打 1。</strong><br />
+          呈现留在面前；行动结算后弃置；场地影响全桌。<br />
+          蓝看蓝，粉看粉；非二元二切看读取，三切看白。<br />
+          ✦ 算检定；每人只能有 1 件服装。<br />
+          <strong>最后算：目标得分 + Joy。</strong>
+        </p>
+      </section>
+    </aside>
+  </div>
+)}
     </main>
   );
 }
