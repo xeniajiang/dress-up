@@ -2756,3 +2756,285 @@ button.table-card[aria-disabled="true"] { cursor: default; }
     min-height: 58px;
   }
 }
+
+/* =========================================================
+   Mobile polish: vertical layout + split cards + no overlap
+   ========================================================= */
+@media (max-width: 1100px) {
+
+  /* ---------- 公共区整体纵向 ---------- */
+
+  .public-table {
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: stretch !important;
+    justify-content: flex-start !important;
+
+    width: 100% !important;
+    min-height: 0 !important;
+    height: auto !important;
+
+    gap: 10px !important;
+    padding-top: 0 !important;
+    overflow: visible !important;
+  }
+
+  /* 场地独占一行 */
+  .public-table .venue-object {
+    position: static !important;
+    top: auto !important;
+    left: auto !important;
+    transform: none !important;
+
+    width: 100% !important;
+    max-width: none !important;
+    min-height: 64px !important;
+
+    margin: 0 !important;
+
+    flex: 0 0 auto !important;
+  }
+
+  /* DEI 独占一行 */
+  .public-table .dei-badge {
+    position: static !important;
+    top: auto !important;
+    right: auto !important;
+
+    width: 100% !important;
+    height: auto !important;
+    min-height: 42px !important;
+
+    margin: 0 !important;
+    padding: 8px 12px !important;
+
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 8px !important;
+
+    border-radius: 12px !important;
+    transform: none !important;
+
+    flex: 0 0 auto !important;
+  }
+
+  .public-table .dei-badge::after {
+    content: "职场 Dress Code 已禁用";
+    font-size: 8px;
+    font-weight: 700;
+    opacity: 0.72;
+  }
+
+  /* 公共牌列独占一行 */
+  .public-table .public-row,
+  .public-table:has(.venue-object) .public-row {
+    position: static !important;
+    top: auto !important;
+
+    width: 100% !important;
+    flex: 0 0 auto !important;
+  }
+
+
+  /* ---------- 二切 / 三切卡面 ---------- */
+
+  .public-row .table-card:has(.split-card-face),
+  .own-card:has(.split-card-face) {
+    padding: 0 !important;
+    overflow: hidden !important;
+  }
+
+  .split-card-face {
+    width: 100% !important;
+    height: 100% !important;
+    min-height: 0 !important;
+
+    margin: 0 !important;
+    overflow: hidden !important;
+  }
+
+  .split-card-face > header {
+    padding: 4px 4px 3px !important;
+    min-height: 0 !important;
+  }
+
+  .split-card-face > header strong {
+    font-size: 7px !important;
+    line-height: 1.05 !important;
+  }
+
+  .split-card-face .split-sections {
+    min-height: 0 !important;
+    overflow: hidden !important;
+  }
+
+  .split-card-face .split-sections > section {
+    min-height: 0 !important;
+
+    padding: 3px 3px !important;
+
+    grid-template-columns: 12px minmax(0, 1fr) !important;
+    gap: 3px !important;
+
+    overflow: hidden !important;
+  }
+
+  .split-card-face .split-sections > section b {
+    width: 12px !important;
+    height: 12px !important;
+    font-size: 5.5px !important;
+  }
+
+  .split-card-face .split-sections > section span {
+    min-width: 0 !important;
+
+    font-size: 6.2px !important;
+    line-height: 1.08 !important;
+
+    overflow-wrap: anywhere !important;
+  }
+
+  /* 三切牌再稍微压缩 */
+  .ternary-card-face .split-sections > section {
+    padding-block: 2px !important;
+  }
+
+  .ternary-card-face .split-sections > section span {
+    font-size: 5.8px !important;
+    line-height: 1.05 !important;
+  }
+
+
+  /* ---------- 玩家区：允许纵向长高 ---------- */
+
+  .player-zone,
+  .player-zone.player-0,
+  .player-zone.player-1,
+  .player-zone.player-2,
+  .player-zone.player-3 {
+    height: auto !important;
+    min-height: 160px !important;
+
+    overflow: visible !important;
+  }
+
+  .player-objects {
+    width: 100% !important;
+
+    min-height: 0 !important;
+    height: auto !important;
+
+    display: flex !important;
+    flex-wrap: wrap !important;
+    align-content: flex-start !important;
+
+    overflow: visible !important;
+
+    padding-bottom: 5px !important;
+  }
+
+
+  /* ---------- 自己区域纵向展开 ---------- */
+
+  .personal-table {
+    width: 100% !important;
+    min-width: 0 !important;
+
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: stretch !important;
+
+    gap: 12px !important;
+
+    padding-left: 0 !important;
+  }
+
+  .goal-card-object,
+  .self-status,
+  .own-hand {
+    position: static !important;
+
+    width: 100% !important;
+    min-width: 0 !important;
+
+    margin: 0 !important;
+  }
+
+  .self-status {
+    min-height: 34px;
+    flex-wrap: wrap !important;
+  }
+
+  .own-hand {
+    min-height: 190px !important;
+
+    padding-top: 4px !important;
+    padding-bottom: 14px !important;
+
+    overflow-x: auto !important;
+    overflow-y: hidden !important;
+  }
+}
+
+/* 手机：玩家区改为单列，优先保证信息不重叠 */
+@media (max-width: 760px) {
+  .tabletop-arena .player-grid {
+    grid-template-columns: 1fr !important;
+    grid-auto-rows: auto !important;
+    gap: 12px !important;
+  }
+
+  .player-zone,
+  .player-zone.player-0,
+  .player-zone.player-1,
+  .player-zone.player-2,
+  .player-zone.player-3 {
+    width: 100% !important;
+
+    height: auto !important;
+    min-height: 190px !important;
+
+    /* 底部给目标牌 + 手牌扇留空间 */
+    padding: 10px 8px 62px !important;
+
+    overflow: visible !important;
+  }
+
+  .player-core {
+    align-items: start !important;
+  }
+
+  .identity-language {
+    width: 100%;
+    row-gap: 5px !important;
+  }
+
+  /* 呈现 / 物件按内容自然撑高 */
+  .player-objects {
+    width: 100% !important;
+
+    height: auto !important;
+    min-height: 64px !important;
+
+    display: flex !important;
+    flex-wrap: wrap !important;
+
+    gap: 6px !important;
+    row-gap: 6px !important;
+
+    margin-top: 10px !important;
+    padding: 2px !important;
+
+    overflow: visible !important;
+  }
+
+  /* 小呈现稍微放宽，减少名字挤压 */
+  .mini-object {
+    flex: 0 0 46px !important;
+    width: 46px !important;
+    min-width: 46px !important;
+    height: 60px !important;
+    min-height: 60px !important;
+  }
+}
