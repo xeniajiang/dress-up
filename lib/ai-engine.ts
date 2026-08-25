@@ -46,7 +46,7 @@ export type SimPlayer = {
   removedPresents: Array<{ card: SimCard; untilTurnSerial: number }>;
   items: string[];
   scoreSources: SimScoreSource[];
-  crushTargetId: number | null;
+  crushTargetIds: number[];
   skip: number;
   turns: number;
   whiteEffects: number;
@@ -96,6 +96,13 @@ export type SimGame = {
     revealed: SimCard[];
     selected: SimCard[];
   } | null;
+  sharedWardrobeOffer: {
+    actorId: number;
+    targetId: number;
+    takenPresentId: string;
+    stage: "target-select" | "actor-choice";
+    selectedPresentId?: string;
+  } | null;
   forcedPlay: { card: SimCard; playerId: number; source: "爱美之心" } | null;
   venueExchange: { playerIds: number[]; index: number; stage: "discard"; discardRemaining: number } | null;
   manzhanOpeningChoice: { playerIds: number[]; index: number } | null;
@@ -116,11 +123,12 @@ export type SimGame = {
 
 export type SimAction = {
   id: string;
-  type: "draw-blind" | "draw-market" | "skip-draw" | "play" | "certificate-claim" | "certificate-pass" | "truth-allow" | "truth-resist" | "confusion-pay" | "confusion-discard" | "confusion-skip" | "beauty-blogger-play" | "beauty-blogger-pass" | "fitting-room-select" | "fitting-room-allocate" | "fitting-room-fizzle" | "reading-keep" | "reading-switch" | "check-count-select" | "dress-code-preserve" | "dress-code-discard-all" | "venue-convert" | "venue-exchange-discard" | "venue-manzhan-mode" | "venue-manzhan-use" | "venue-manzhan-pass" | "venue-manzhan-move";
+  type: "draw-blind" | "draw-market" | "skip-draw" | "play" | "certificate-claim" | "certificate-pass" | "truth-allow" | "truth-resist" | "confusion-pay" | "confusion-discard" | "confusion-skip" | "beauty-blogger-play" | "beauty-blogger-pass" | "fitting-room-select" | "fitting-room-allocate" | "fitting-room-fizzle" | "shared-wardrobe-select" | "shared-wardrobe-pass" | "shared-wardrobe-transfer" | "shared-wardrobe-lose-joy" | "reading-keep" | "reading-switch" | "check-count-select" | "dress-code-preserve" | "dress-code-discard-all" | "venue-convert" | "venue-exchange-discard" | "venue-manzhan-mode" | "venue-manzhan-use" | "venue-manzhan-pass" | "venue-manzhan-move";
   label: string;
   cardId?: string;
   targetId?: number;
   sourcePlayerId?: number;
+  destinationPlayerId?: number;
   marketCardId?: string;
   presentId?: string;
   presentIds?: string[];
@@ -150,6 +158,7 @@ export type VisibleGame = {
   confusionOffer: SimGame["confusionOffer"];
   beautyOffer: SimGame["beautyOffer"];
   fittingRoomOffer: SimGame["fittingRoomOffer"];
+  sharedWardrobeOffer: SimGame["sharedWardrobeOffer"];
   readingPrompt: SimGame["readingPrompt"];
   checkCountPrompt: SimGame["checkCountPrompt"];
   dressCodeOffer: SimGame["dressCodeOffer"];
@@ -218,7 +227,7 @@ export function createSimGame(names: string[], random = Math.random, ruleOverrid
   const goals = shuffle(GOALS, random);
   const players = names.map((name, id): SimPlayer => ({
     id, name: name || `AI ${id + 1}`, goal: goals[id], identity: "male", reading: "male", identityHistory: [{ identity: "male", reading: "male" }], tempIdentity: null, tempIdentityExpiresAfterTurn: null, ambiguityCard: null,
-    joy: 2, hand: [deck.shift()!, deck.shift()!], presents: [], removedPresents: [], items: [], scoreSources: [], crushTargetId: null, skip: 0, turns: 0, whiteEffects: 0, certificateReady: false,
+    joy: 2, hand: [deck.shift()!, deck.shift()!], presents: [], removedPresents: [], items: [], scoreSources: [], crushTargetIds: [], skip: 0, turns: 0, whiteEffects: 0, certificateReady: false,
     joyLossVersion: 0, lastJoyLoss: 0,
   }));
   const active = Math.floor(random() * 4);
@@ -229,7 +238,7 @@ export function createSimGame(names: string[], random = Math.random, ruleOverrid
     },
     players, deck, market: [deck.shift()!, deck.shift()!, deck.shift()!], discard: [], active, phase: "draw", round: 1,
     venue: null, dei: false, locks: {}, finishing: false, turnSerial: 0,
-    events: [`${players[active].name} 随机先手。`, "AI 观战局开始。"], warnings: [], certificateOffer: null, truthOffer: null, confusionOffer: null, beautyOffer: null, fittingRoomOffer: null, forcedPlay: null, venueExchange: null, manzhanOpeningChoice: null, manzhanPinkPrompt: null, readingPrompt: null, checkCountPrompt: null, dressCodeOffer: null,
+    events: [`${players[active].name} 随机先手。`, "AI 观战局开始。"], warnings: [], certificateOffer: null, truthOffer: null, confusionOffer: null, beautyOffer: null, fittingRoomOffer: null, sharedWardrobeOffer: null, forcedPlay: null, venueExchange: null, manzhanOpeningChoice: null, manzhanPinkPrompt: null, readingPrompt: null, checkCountPrompt: null, dressCodeOffer: null,
   };
 }
 
@@ -253,6 +262,7 @@ export function visibleStateFor(game: SimGame, observerId: number): VisibleGame 
     fittingRoomOffer: game.fittingRoomOffer
       ? { ...game.fittingRoomOffer, revealed: observerId === game.fittingRoomOffer.actorId ? game.fittingRoomOffer.revealed : [] }
       : null,
+    sharedWardrobeOffer: game.sharedWardrobeOffer,
     readingPrompt: game.readingPrompt,
     checkCountPrompt: game.checkCountPrompt,
     dressCodeOffer: game.dressCodeOffer,
@@ -274,6 +284,7 @@ export function decisionPlayerId(game: SimGame) {
     ?? game.confusionOffer?.targetId
     ?? game.beautyOffer?.playerId
     ?? (game.fittingRoomOffer?.stage === "select" ? game.fittingRoomOffer.actorId : game.fittingRoomOffer?.targetId)
+    ?? (game.sharedWardrobeOffer?.stage === "target-select" ? game.sharedWardrobeOffer.targetId : game.sharedWardrobeOffer?.actorId)
     ?? (game.venueExchange ? game.venueExchange.playerIds[game.venueExchange.index] : undefined)
     ?? game.manzhanPinkPrompt?.playerId
     ?? game.forcedPlay?.playerId
@@ -449,15 +460,14 @@ function enumerateCardPlayActions(game: SimGame, actor: SimPlayer, card: SimCard
   } else if (card.name === "卸甲") {
     everyone.filter((target) => target.presents.some((held) => held.name === "美甲")).forEach((target) => pushPlay(actions, card, ` → ${target.name}`, { targetId: target.id }));
   } else if (card.name === "共享衣橱") {
-    everyone.forEach((source) => source.presents.forEach((present) => {
-      everyone.filter((target) => target.id !== source.id && !target.presents.some((held) => held.name === present.name)).forEach((target) => {
-        pushPlay(actions, card, ` → 【${present.name}】从 ${source.name} 移至 ${target.name}`, {
-          sourcePlayerId: source.id,
-          presentId: present.id,
-          targetId: target.id,
-        });
-      });
-    }));
+    others.forEach((target) => target.presents
+      .filter((present) => !actor.presents.some((held) => held.name === present.name))
+      .forEach((present) => pushPlay(actions, card, ` → 从 ${target.name} 取得【${present.name}】`, {
+        sourcePlayerId: target.id,
+        destinationPlayerId: actor.id,
+        presentId: present.id,
+        targetId: target.id,
+      })));
   } else if (card.name === "打烊" || card.name === "爱美之心") {
     game.market.forEach((marketCard) => pushPlay(actions, card, ` → 【${marketCard.name}】`, { marketCardId: marketCard.id }));
   } else if (card.name === "闺蜜试衣间") {
@@ -626,6 +636,47 @@ export function enumerateLegalActions(game: SimGame): SimAction[] {
       { id: `venue-manzhan:opening:${playerId}:blue`, type: "venue-manzhan-mode", venueMode: "blue", label: "漫展白色：本场地选择蓝色效果" },
       { id: `venue-manzhan:opening:${playerId}:pink`, type: "venue-manzhan-mode", venueMode: "pink", label: "漫展白色：本场地选择粉色效果" },
     ];
+  }
+  if (game.sharedWardrobeOffer) {
+    const offer = game.sharedWardrobeOffer;
+    const actor = game.players[offer.actorId];
+    const target = game.players[offer.targetId];
+    if (offer.stage === "actor-choice") {
+      const selected = actor.presents.find((present) => present.id === offer.selectedPresentId);
+      if (!selected) return [];
+      return [{
+        id: `shared-wardrobe:transfer:${offer.actorId}:${offer.targetId}:${selected.id}`,
+        type: "shared-wardrobe-transfer",
+        label: `将【${selected.name}】移给 ${target.name}`,
+        sourcePlayerId: actor.id,
+        destinationPlayerId: target.id,
+        targetId: target.id,
+        presentId: selected.id,
+      }, ...(actor.joy >= 2 ? [{
+        id: `shared-wardrobe:lose-joy:${offer.actorId}:${offer.targetId}:${selected.id}`,
+        type: "shared-wardrobe-lose-joy" as const,
+        label: "拒绝移交，失去 2 Joy",
+        targetId: target.id,
+        presentId: selected.id,
+      }] : [])];
+    }
+    const selectActions = actor.presents
+      .filter((present) => present.id !== offer.takenPresentId)
+      .map((present) => ({
+        id: `shared-wardrobe:select:${offer.actorId}:${offer.targetId}:${present.id}`,
+        type: "shared-wardrobe-select" as const,
+        label: `指定 ${actor.name} 的【${present.name}】`,
+        sourcePlayerId: actor.id,
+        destinationPlayerId: target.id,
+        targetId: target.id,
+        presentId: present.id,
+      }));
+    return [...selectActions, {
+      id: `shared-wardrobe:pass:${offer.actorId}:${offer.targetId}`,
+      type: "shared-wardrobe-pass" as const,
+      label: "不指定另一张呈现",
+      targetId: target.id,
+    }];
   }
   if (game.readingPrompt) {
     const check = game.readingPrompt.checks[game.readingPrompt.index];
@@ -840,7 +891,7 @@ function recordScoreSource(player: SimPlayer, cardName: string, joy: number) {
 }
 
 function grantCrushJoy(game: SimGame, actor: SimPlayer, targetId: number, cardName: string) {
-  if (actor.crushTargetId !== targetId) return false;
+  if (!actor.crushTargetIds.includes(targetId)) return false;
   actor.joy += 1;
   recordScoreSource(actor, "心动标记", 1);
   event(game, `${actor.name} 对拥有其心动标记的 ${game.players[targetId].name} 使用了【${cardName}】，获得 1 Joy。`);
@@ -1018,6 +1069,16 @@ function gainPresent(game: SimGame, card: SimCard, targetId: number) {
   if (game.venue?.card.name === "全女空间！" && simSide(target) === "female" && simCardChecked(card)) target.joy += 1;
 }
 
+function transferPresent(game: SimGame, source: SimPlayer, target: SimPlayer, card: SimCard) {
+  source.presents = source.presents.filter((held) => held.id !== card.id);
+  source.removedPresents.push({ card: { ...card }, untilTurnSerial: game.turnSerial + 2 });
+  delete card.checkOverride;
+  delete card.checkOverrideExpiresAfterTurn;
+  card.checkAnimationKind = card.checked ? "checked" : "unchecked";
+  card.checkAnimationVersion = (card.checkAnimationVersion ?? 0) + 1;
+  gainPresent(game, card, target.id);
+}
+
 function resolvePlay(game: SimGame, action: SimAction, card: SimCard) {
   const actor = game.players[game.active];
   const target = action.targetId === undefined ? null : game.players[action.targetId];
@@ -1040,36 +1101,32 @@ function resolvePlay(game: SimGame, action: SimAction, card: SimCard) {
     const source = game.players[action.sourcePlayerId];
     const moved = source.presents.find((held) => held.id === action.presentId);
     if (moved) {
-      source.presents = source.presents.filter((held) => held.id !== moved.id);
-      source.removedPresents.push({ card: { ...moved }, untilTurnSerial: game.turnSerial + 2 });
-      delete moved.checkOverride;
-      delete moved.checkOverrideExpiresAfterTurn;
-      moved.checkAnimationKind = moved.checked ? "checked" : "unchecked";
-      moved.checkAnimationVersion = (moved.checkAnimationVersion ?? 0) + 1;
-      gainPresent(game, moved, target.id);
+      transferPresent(game, source, actor, moved);
+      const hasAnotherPresent = actor.presents.some((present) => present.id !== moved.id);
+      if (hasAnotherPresent) {
+        game.sharedWardrobeOffer = { actorId: actor.id, targetId: target.id, takenPresentId: moved.id, stage: "target-select" };
+        event(game, `${actor.name} 从 ${target.name} 的呈现区取得【${moved.name}】；${target.name} 接着指定 ${actor.name} 的另一张呈现。`);
+      } else {
+        event(game, `${actor.name} 从 ${target.name} 的呈现区取得【${moved.name}】。`);
+      }
     }
   } else if (card.name === "心动夸夸" && target) {
     if (target.items.includes("封心锁爱")) {
       warn(game, `【心动夸夸】不能以拥有【封心锁爱】的 ${target.name} 为目标。`);
       return;
     }
-    const previousTargetId = actor.crushTargetId ?? null;
-    actor.crushTargetId = target.id;
+    if (!actor.crushTargetIds.includes(target.id)) actor.crushTargetIds.push(target.id);
     target.joy += 1;
     recordScoreSource(target, card.name, 1);
-    if (previousTargetId !== null && previousTargetId !== target.id) {
-      event(game, `${actor.name} 移除了此前给 ${game.players[previousTargetId].name} 的心动标记，并将标记交给 ${target.name}。`);
-    } else {
-      event(game, `${target.name} 获得 1 Joy，并获得一枚来自 ${actor.name} 的心动标记。`);
-    }
+    event(game, `${target.name} 获得 1 Joy，并获得一枚来自 ${actor.name} 的心动标记。`);
   } else if (card.name === "封心锁爱") {
     actor.items.push("封心锁爱");
-    const givers = game.players.filter((player) => player.crushTargetId === actor.id);
+    const givers = game.players.filter((player) => player.crushTargetIds.includes(actor.id));
     if (givers.length === 0) {
       event(game, `${actor.name} 打出【封心锁爱】；此后不能成为【心动夸夸】的目标。`);
     } else {
       givers.forEach((giver) => {
-        giver.crushTargetId = null;
+        giver.crushTargetIds = giver.crushTargetIds.filter((targetId) => targetId !== actor.id);
         const joyBefore = giver.joy;
         loseJoy(giver, 2);
         event(game, `${actor.name} 弃置了来自 ${giver.name} 的心动标记；${giver.name} 失去 ${joyBefore - giver.joy} Joy。`);
@@ -1379,6 +1436,36 @@ export function applyLegalAction(current: SimGame, action: SimAction): SimGame {
     }
     return game;
   }
+  if (action.type === "shared-wardrobe-select") {
+    const offer = game.sharedWardrobeOffer!;
+    const actor = game.players[offer.actorId];
+    const target = game.players[offer.targetId];
+    const selected = actor.presents.find((present) => present.id === action.presentId)!;
+    offer.stage = "actor-choice";
+    offer.selectedPresentId = selected.id;
+    event(game, `${target.name} 指定了 ${actor.name} 的【${selected.name}】；${actor.name} 选择移交，或失去 2 Joy。`);
+    return game;
+  }
+  if (action.type === "shared-wardrobe-pass" || action.type === "shared-wardrobe-transfer" || action.type === "shared-wardrobe-lose-joy") {
+    const offer = game.sharedWardrobeOffer!;
+    const actor = game.players[offer.actorId];
+    const target = game.players[offer.targetId];
+    game.sharedWardrobeOffer = null;
+    if (action.type === "shared-wardrobe-pass") {
+      event(game, `${target.name} 不指定 ${actor.name} 的另一张呈现，【共享衣橱】结束结算。`);
+    } else if (action.type === "shared-wardrobe-transfer") {
+      const transferred = actor.presents.find((present) => present.id === action.presentId)!;
+      transferPresent(game, actor, target, transferred);
+      event(game, `${actor.name} 将【${transferred.name}】移至 ${target.name} 的呈现区。`);
+    } else if (action.type === "shared-wardrobe-lose-joy") {
+      const selectedName = actor.presents.find((present) => present.id === action.presentId)?.name ?? "该呈现";
+      const joyBefore = actor.joy;
+      loseJoy(actor, 2);
+      event(game, `${actor.name} 拒绝移交【${selectedName}】，失去 ${joyBefore - actor.joy} Joy。`);
+    }
+    if (!startFulingtaExchange(game, actor, { ...action, targetId: target.id })) advanceTurn(game);
+    return game;
+  }
   const readingChecks = readingChecksFor(current, action);
   if (readingChecks.length) {
     game.readingPrompt = { checks: readingChecks, index: 0, pendingAction: action };
@@ -1630,7 +1717,7 @@ export function applyLegalAction(current: SimGame, action: SimAction): SimGame {
   const triggersCrushJoy = !fizzled
     && card.name !== "心动夸夸"
     && action.targetId !== undefined
-    && actor.crushTargetId === action.targetId;
+    && actor.crushTargetIds.includes(action.targetId);
   if (forcedCard) game.forcedPlay = null;
   else actor.hand = actor.hand.filter((held) => held.id !== card.id);
   if (!fizzled) resolvePlay(game, action, card);
@@ -1646,6 +1733,6 @@ export function applyLegalAction(current: SimGame, action: SimAction): SimGame {
   if (game.certificateOffer) game.certificateOffer.resumeAfter = grantsExtraAction || grantsManzhanBluePlay ? "none" : game.forcedPlay ? "forced-play" : "advance-turn";
   else if (game.truthOffer) game.truthOffer.resumeAfter = grantsExtraAction ? "none" : "advance-turn";
   else if (game.confusionOffer) game.confusionOffer.resumeAfter = grantsExtraAction ? "none" : "advance-turn";
-  else if (!game.beautyOffer && !game.fittingRoomOffer && !game.forcedPlay && !game.manzhanOpeningChoice && !game.dressCodeOffer && !grantsExtraAction && !grantsManzhanBluePlay && !startFulingtaExchange(game, actor, action)) advanceTurn(game);
+  else if (!game.beautyOffer && !game.fittingRoomOffer && !game.sharedWardrobeOffer && !game.forcedPlay && !game.manzhanOpeningChoice && !game.dressCodeOffer && !grantsExtraAction && !grantsManzhanBluePlay && !startFulingtaExchange(game, actor, action)) advanceTurn(game);
   return game;
 }

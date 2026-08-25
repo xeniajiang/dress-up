@@ -78,7 +78,7 @@ test("human pronoun response can accept binary identity or pay to stay nonbinary
   assert.equal(stayed.players[0].lastJoyLoss, 1);
 });
 
-test("心动夸夸只标记其他玩家、移动旧标记，并在后续对心动对象出牌时奖励 Joy", () => {
+test("心动夸夸只标记其他玩家、可累积多个对象，并在后续对任一心动对象出牌时奖励 Joy", () => {
   let game = createSimGame(["A", "B", "C", "D"]);
   game.active = 0;
   game.phase = "play";
@@ -86,7 +86,7 @@ test("心动夸夸只标记其他玩家、移动旧标记，并在后续对心�
   const firstActions = enumerateLegalActions(game).filter((action) => action.cardId === "crush-first");
   assert.equal(firstActions.some((action) => action.targetId === 0), false, "不能对自己使用心动夸夸");
   game = applyLegalAction(game, firstActions.find((action) => action.targetId === 1)!);
-  assert.equal(game.players[0].crushTargetId, 1);
+  assert.deepEqual(game.players[0].crushTargetIds, [1]);
   assert.equal(game.players[0].joy, 2, "心动夸夸本身不让出牌者获得连锁 Joy");
   assert.equal(game.players[1].joy, 3);
   assert.deepEqual(game.players[1].scoreSources, [{ cardName: "心动夸夸", joy: 1 }]);
@@ -102,28 +102,28 @@ test("心动夸夸只标记其他玩家、移动旧标记，并在后续对心�
   game.phase = "play";
   game.players[0].hand = [{ id: "crush-move", name: "心动夸夸", kind: "action" }];
   game = applyLegalAction(game, enumerateLegalActions(game).find((action) => action.cardId === "crush-move" && action.targetId === 2)!);
-  assert.equal(game.players[0].crushTargetId, 2, "新标记覆盖同一出牌者此前的标记");
-  assert.equal(game.players[0].joy, 3, "移动标记本身不触发连锁 Joy");
+  assert.deepEqual(game.players[0].crushTargetIds, [1, 2], "新标记与此前标记同时保留");
+  assert.equal(game.players[0].joy, 3, "给予新标记本身不触发连锁 Joy");
 
   game.active = 0;
   game.phase = "play";
   game.players[0].hand = [{ id: "old-crush-target", name: "他", kind: "action" }];
   game = applyLegalAction(game, enumerateLegalActions(game).find((action) => action.cardId === "old-crush-target" && action.targetId === 1)!);
-  assert.equal(game.players[0].joy, 3, "旧心动对象不再触发奖励");
+  assert.equal(game.players[0].joy, 4, "此前的心动对象仍触发奖励");
 
   game.active = 0;
   game.phase = "play";
   game.players[0].hand = [{ id: "new-crush-target", name: "她", kind: "action" }];
   game = applyLegalAction(game, enumerateLegalActions(game).find((action) => action.cardId === "new-crush-target" && action.targetId === 2)!);
-  assert.equal(game.players[0].joy, 4);
-  assert.deepEqual(game.players[0].scoreSources, [{ cardName: "心动标记", joy: 2 }]);
+  assert.equal(game.players[0].joy, 5);
+  assert.deepEqual(game.players[0].scoreSources, [{ cardName: "心动标记", joy: 3 }]);
 });
 
 test("AI 会优先利用已经建立的心动标记获得额外 Joy", () => {
   const game = createSimGame(["A", "B", "C", "D"]);
   game.active = 0;
   game.phase = "play";
-  game.players[0].crushTargetId = 1;
+  game.players[0].crushTargetIds = [1];
   game.players[0].hand = [{ id: "use-crush", name: "她", kind: "action" }];
   const decision = chooseHeuristicAction(visibleStateFor(game, 0), enumerateLegalActions(game), createAiMemories(4)[0], () => 0.5);
   const marked = decision.candidates.find((candidate) => candidate.action.cardId === "use-crush" && candidate.action.targetId === 1)!;
@@ -136,18 +136,18 @@ test("封心锁爱清除已有心动标记、反噬每名发起者并持续免�
   game.active = 0;
   game.phase = "play";
   game.players[0].hand = [{ id: "closed-heart", name: "封心锁爱", kind: "action" }];
-  game.players[1].crushTargetId = 0;
+  game.players[1].crushTargetIds = [0];
   game.players[1].joy = 3;
-  game.players[2].crushTargetId = 0;
+  game.players[2].crushTargetIds = [0];
   game.players[2].joy = 1;
-  game.players[3].crushTargetId = 2;
+  game.players[3].crushTargetIds = [2];
 
   const closeHeart = enumerateLegalActions(game).find((action) => action.cardId === "closed-heart")!;
   game = applyLegalAction(game, closeHeart);
   assert.ok(game.players[0].items.includes("封心锁爱"));
-  assert.equal(game.players[1].crushTargetId, null);
-  assert.equal(game.players[2].crushTargetId, null);
-  assert.equal(game.players[3].crushTargetId, 2, "与封心者无关的心动标记不受影响");
+  assert.deepEqual(game.players[1].crushTargetIds, []);
+  assert.deepEqual(game.players[2].crushTargetIds, []);
+  assert.deepEqual(game.players[3].crushTargetIds, [2], "与封心者无关的心动标记不受影响");
   assert.equal(game.players[1].joy, 1);
   assert.equal(game.players[2].joy, 0, "Joy 不足 2 时只失去现有 Joy");
   assert.ok(!game.discard.some((card) => card.id === "closed-heart"), "封心锁爱应持续留场");
@@ -410,7 +410,7 @@ test("爱美之心获得公共行动牌后立即选择目标并执行", () => {
   const resolved = applyLegalAction(claimed, praiseOther);
   assert.equal(resolved.players[0].joy, 2);
   assert.equal(resolved.players[1].joy, 3);
-  assert.equal(resolved.players[0].crushTargetId, 1);
+  assert.deepEqual(resolved.players[0].crushTargetIds, [1]);
   assert.equal(resolved.forcedPlay, null);
   assert.equal(resolved.active, 1);
   assert.ok(resolved.discard.some((card) => card.id === "claimed-praise"));
@@ -1279,19 +1279,81 @@ test("AI 会比较身份判断的即时损失与切换读取的 Joy 成本", () 
   assert.equal(decision.chosen.type, "reading-switch", "应花 1 Joy 保住三张关键检定呈现");
 });
 
-test("共享衣橱把任意呈现移给另一名玩家而不弃置该牌", () => {
+test("共享衣橱由对方指定另一张呈现，再由出牌者选择移交或失去 2 Joy", () => {
   const base = createSimGame(["A", "B", "C", "D"]);
   base.active = 0;
   base.phase = "play";
+  base.players[0].presents = [{ id: "shared-lipstick", name: "一支商标模糊的口红", kind: "present", checked: true }];
   base.players[1].presents = [{ id: "shared-nails", name: "美甲", kind: "present", checked: true }];
   base.players[0].hand = [{ id: "shared-wardrobe", name: "共享衣橱", kind: "action" }];
 
-  const action = enumerateLegalActions(base).find((candidate) => candidate.cardId === "shared-wardrobe" && candidate.sourcePlayerId === 1 && candidate.presentId === "shared-nails" && candidate.targetId === 2)!;
-  const game = applyLegalAction(base, action);
-  assert.ok(!game.players[1].presents.some((card) => card.id === "shared-nails"));
-  assert.ok(game.players[2].presents.some((card) => card.id === "shared-nails"));
-  assert.ok(!game.discard.some((card) => card.id === "shared-nails"));
-  assert.ok(game.players[1].removedPresents.some((entry) => entry.card.id === "shared-nails"));
+  const action = enumerateLegalActions(base).find((candidate) => candidate.cardId === "shared-wardrobe" && candidate.sourcePlayerId === 1 && candidate.presentId === "shared-nails" && candidate.destinationPlayerId === 0)!;
+  assert.ok(action, "出牌者应只能把另一名玩家的呈现拖到自己区域");
+  const offered = applyLegalAction(base, action);
+  assert.equal(decisionPlayerId(offered), 1, "取得呈现后应由原持有者指定另一张牌");
+  assert.ok(offered.players[0].presents.some((card) => card.id === "shared-nails"));
+  assert.ok(!offered.players[1].presents.some((card) => card.id === "shared-nails"));
+  assert.ok(!offered.discard.some((card) => card.id === "shared-nails"));
+  assert.ok(offered.players[1].removedPresents.some((entry) => entry.card.id === "shared-nails"));
+
+  const responses = enumerateLegalActions(offered);
+  assert.ok(!responses.some((candidate) => candidate.type === "shared-wardrobe-select" && candidate.presentId === "shared-nails"), "不能指定刚被移走的同一张呈现");
+  const selectLipstick = responses.find((candidate) => candidate.type === "shared-wardrobe-select" && candidate.presentId === "shared-lipstick");
+  const pass = responses.find((candidate) => candidate.type === "shared-wardrobe-pass");
+  assert.ok(selectLipstick, "原持有者应指定出牌者的另一张呈现");
+  assert.ok(pass, "原持有者也可以不指定另一张呈现");
+
+  const passed = applyLegalAction(offered, pass);
+  assert.ok(passed.players[0].presents.some((card) => card.id === "shared-lipstick"));
+  assert.equal(passed.sharedWardrobeOffer, null);
+  assert.equal(passed.active, 1);
+
+  const selected = applyLegalAction(offered, selectLipstick);
+  assert.equal(decisionPlayerId(selected), 0, "指定后应由出牌者选择代价");
+  const choices = enumerateLegalActions(selected);
+  const transfer = choices.find((candidate) => candidate.type === "shared-wardrobe-transfer");
+  const loseJoy = choices.find((candidate) => candidate.type === "shared-wardrobe-lose-joy");
+  assert.ok(transfer);
+  assert.ok(loseJoy, "Joy 至少为 2 时可以拒绝移交并失去 2 Joy");
+
+  const transferred = applyLegalAction(selected, transfer);
+  assert.ok(transferred.players[1].presents.some((card) => card.id === "shared-lipstick"));
+  assert.ok(!transferred.players[0].presents.some((card) => card.id === "shared-lipstick"));
+  assert.equal(transferred.players[0].joy, 2);
+  assert.equal(transferred.sharedWardrobeOffer, null);
+  assert.equal(transferred.active, 1);
+
+  const refused = applyLegalAction(selected, loseJoy);
+  assert.ok(refused.players[0].presents.some((card) => card.id === "shared-lipstick"));
+  assert.equal(refused.players[0].joy, 0, "拒绝移交时准确失去 2 Joy");
+  assert.equal(refused.sharedWardrobeOffer, null);
+  assert.equal(refused.active, 1);
+});
+
+test("共享衣橱第二段无牌可选时自然结束，Joy 少于 2 时只能移交", () => {
+  const noCard = createSimGame(["A", "B", "C", "D"]);
+  noCard.active = 0;
+  noCard.phase = "play";
+  noCard.players[0].presents = [];
+  noCard.players[1].presents = [{ id: "only-nails", name: "美甲", kind: "present", checked: true }];
+  noCard.players[0].hand = [{ id: "wardrobe-no-card", name: "共享衣橱", kind: "action" }];
+  const play = enumerateLegalActions(noCard).find((action) => action.cardId === "wardrobe-no-card" && action.presentId === "only-nails")!;
+  const finished = applyLegalAction(noCard, play);
+  assert.equal(finished.sharedWardrobeOffer, null);
+  assert.equal(finished.active, 1);
+
+  const lowJoy = createSimGame(["A", "B", "C", "D"]);
+  lowJoy.active = 0;
+  lowJoy.phase = "play";
+  lowJoy.players[0].joy = 1;
+  lowJoy.players[0].presents = [{ id: "low-lipstick", name: "一支商标模糊的口红", kind: "present", checked: true }];
+  lowJoy.players[1].presents = [{ id: "low-nails", name: "美甲", kind: "present", checked: true }];
+  lowJoy.players[0].hand = [{ id: "wardrobe-low-joy", name: "共享衣橱", kind: "action" }];
+  const lowPlay = enumerateLegalActions(lowJoy).find((action) => action.cardId === "wardrobe-low-joy" && action.presentId === "low-nails")!;
+  const lowOffer = applyLegalAction(lowJoy, lowPlay);
+  const nomination = enumerateLegalActions(lowOffer).find((action) => action.type === "shared-wardrobe-select")!;
+  const lowChoice = applyLegalAction(lowOffer, nomination);
+  assert.deepEqual(enumerateLegalActions(lowChoice).map((action) => action.type), ["shared-wardrobe-transfer"]);
 });
 
 test("美妆博主粉栏无口红也可展示牌堆顶三张并择一立即打出", () => {
@@ -1329,7 +1391,7 @@ test("美妆博主立即打出的呈现会触发出牌者给予的心动标记",
   beauty.players[0].identity = "female";
   beauty.players[0].reading = "female";
   beauty.players[0].joy = 2;
-  beauty.players[0].crushTargetId = 1;
+  beauty.players[0].crushTargetIds = [1];
   beauty.players[0].hand = [{ id: "beauty-crush", name: "美妆博主", kind: "action" }];
   beauty.deck = [
     { id: "beauty-crush-nails", name: "美甲", kind: "present", checked: true },

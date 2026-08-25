@@ -345,10 +345,10 @@ function cardEffectCopy(name: string) {
   const effects: Record<string, string> = {
     理发: "弃置一名玩家的【长发】。",
     卸甲: "弃置一名玩家的【美甲】。",
-    共享衣橱: "选择场上一张呈现，将其移至另一名玩家处。",
+    共享衣橱: "选择一名其他玩家，将其呈现区内一张呈现牌移至你的呈现区。然后，其可以选择你呈现区内另一张呈现牌。你选择：将该牌移至其呈现区；或失去 2 Joy。",
     闺蜜试衣间: "查看公共牌列与牌堆顶 3 张，从中选择 2 张呈现及另一名玩家；也可以直接选择【没买到衣服】。对方分给双方各 1 张并立即打出；未选顶牌按原顺序放回牌堆顶。",
     翻箱倒柜: "将公共牌列洗回暗牌并重新翻出三张；然后再次暗摸或明拿，并正常出一张牌。",
-    心动夸夸: "选择一名其他玩家。其获得 1 Joy，并获得一枚来自你的心动标记。你至多给予一名玩家心动标记；给予新标记时，移除此前由你给予的标记。此后，每当你对拥有你的心动标记的玩家使用一张牌时，你获得 1 Joy。",
+    心动夸夸: "目标获得 1 Joy，并获得一枚来自你的心动标记。每名玩家至多拥有一枚来自同一玩家的心动标记。此后，每当你对拥有你的心动标记的玩家使用一张牌时，你获得 1 Joy。",
     封心锁爱: "将此牌留在你面前。你不能成为【心动夸夸】的目标。若你已有心动标记，弃置这些标记，并使每枚标记的发起者失去 2 Joy。",
     地雷系: "将此牌留在你面前。每当另一名玩家对你使用一张牌时，其失去 1 Joy。",
     打烊: "弃置一张公共牌，然后补满公共牌列。",
@@ -364,7 +364,7 @@ function cardEffectCopy(name: string) {
     自由职业者: "获得 1 Joy。将此牌留在你面前。你不受【职场 Dress Code】和【职场 DEI】影响。",
     "改好证了！": "获得 1 Joy。将此牌留在你面前。你的长期公开身份直到终局不能改变。",
     空间主理人: "检查全场玩家的检定数。每有一名玩家的检定数至少为 2，你获得 1 Joy。【扑朔迷离】与【先入为主】会影响这次检定。",
-    伪娘团: "使用时，你必须为蓝读取且检定数至少为 2。选择另一名同样为蓝读取、且检定数至少为 2 的玩家，你们各获得 2 Joy。非二元可在读取判断前改变读取；【扑朔迷离】与【先入为主】会影响双方的检定数判断。",
+    伪娘团: "使用时，你必须为蓝读取且检定数至少为 2。选择另一名同样为蓝读取、且检定数至少为 2 的玩家，你们各获得 2 Joy。",
     "你pass吗？": "选择一名玩家，按其当前二元读取结算。蓝：检定 ≥3 时临时变为女性。粉：检定 ≤1 时临时变为男性。临时身份持续至目标自己的下回合结束。",
     身份肯定: "选择任意处于临时身份的玩家，将其当前临时身份固定为长期公开身份，并结束临时状态。",
     开个小证: "获得一个【小证】物件。当一张【她】将补入公共牌列时，你可以弃置 1 张手牌，以该【她】替换之；【她】加入你的手牌，不进入公共牌列，并消耗截获能力。放行不消耗截获能力；小证物件始终保留。",
@@ -553,7 +553,6 @@ function CardFace({ card }: { card: SimCard }) {
                       : effectCopy.length >= 45
                         ? "effect-copy-long"
                         : "";
-
                 return <p className={lengthClass}>{effectCopy}</p>;
               })()}
             </>
@@ -805,6 +804,9 @@ function GameTable({ mode, names, onExit }: { mode: Mode; names: string[]; onExi
   const fittingRoomSelectActions = legalActions.filter((action) => action.type === "fitting-room-select");
   const fittingRoomAllocateActions = legalActions.filter((action) => action.type === "fitting-room-allocate");
   const fittingRoomFizzleAction = legalActions.find((action) => action.type === "fitting-room-fizzle");
+  const sharedWardrobeSelectActions = legalActions.filter((action) => action.type === "shared-wardrobe-select");
+  const sharedWardrobePassAction = legalActions.find((action) => action.type === "shared-wardrobe-pass");
+  const sharedWardrobeChoiceActions = legalActions.filter((action) => action.type === "shared-wardrobe-transfer" || action.type === "shared-wardrobe-lose-joy");
   const fittingRoomCandidateCards = game.fittingRoomOffer?.stage === "select"
     ? [...game.market, ...game.fittingRoomOffer.revealed]
     : [];
@@ -832,9 +834,13 @@ function GameTable({ mode, names, onExit }: { mode: Mode; names: string[]; onExi
   const selectedPlayActions = selectedCardPlayActions;
   const selectedHandCard = forcedHumanCard ?? game.players[0].hand.find((card) => card.id === effectiveSelectedCardId);
   const sharedWardrobeDragMode = isHumanDecision && selectedHandCard?.name === "共享衣橱";
+  const sharedWardrobeResponseMode = isHumanDecision && game.sharedWardrobeOffer?.stage === "target-select";
+  const sharedWardrobeActorChoiceMode = isHumanDecision && game.sharedWardrobeOffer?.stage === "actor-choice";
   const manzhanDragMode = isHumanDecision && Boolean(game.manzhanPinkPrompt);
   const boardMoveActions = manzhanDragMode
     ? manzhanMoveActions
+    : sharedWardrobeResponseMode
+      ? sharedWardrobeSelectActions
     : sharedWardrobeDragMode
       ? selectedPlayActions.filter((action) => action.sourcePlayerId !== undefined && action.presentId && action.targetId !== undefined)
       : [];
@@ -850,6 +856,11 @@ function GameTable({ mode, names, onExit }: { mode: Mode; names: string[]; onExi
   const beautyOfferPlayer = game.beautyOffer ? game.players[game.beautyOffer.playerId] : null;
   const fittingRoomActor = game.fittingRoomOffer ? game.players[game.fittingRoomOffer.actorId] : null;
   const fittingRoomTarget = game.fittingRoomOffer ? game.players[game.fittingRoomOffer.targetId] : null;
+  const sharedWardrobeActor = game.sharedWardrobeOffer ? game.players[game.sharedWardrobeOffer.actorId] : null;
+  const sharedWardrobeTarget = game.sharedWardrobeOffer ? game.players[game.sharedWardrobeOffer.targetId] : null;
+  const sharedWardrobeSelectedPresent = game.sharedWardrobeOffer?.selectedPresentId
+    ? sharedWardrobeActor?.presents.find((present) => present.id === game.sharedWardrobeOffer?.selectedPresentId)
+    : null;
   const inspectedHandPlayer = inspectedHandPlayerId === null ? null : game.players[inspectedHandPlayerId];
   const readingCheck = game.readingPrompt?.checks[game.readingPrompt.index];
   const readingPlayer = readingCheck ? game.players[readingCheck.playerId] : null;
@@ -909,7 +920,7 @@ function GameTable({ mode, names, onExit }: { mode: Mode; names: string[]; onExi
   };
 
   const moveActionToPlayer = (playerId: number) => movingPresent
-    ? boardMoveActions.find((action) => action.presentId === movingPresent.presentId && action.sourcePlayerId === movingPresent.sourcePlayerId && action.targetId === playerId)
+    ? boardMoveActions.find((action) => action.presentId === movingPresent.presentId && action.sourcePlayerId === movingPresent.sourcePlayerId && (action.destinationPlayerId ?? action.targetId) === playerId)
     : undefined;
 
   const dropBoardPresent = (playerId: number) => {
@@ -1061,7 +1072,18 @@ function GameTable({ mode, names, onExit }: { mode: Mode; names: string[]; onExi
         </div>
       </header>
 
-      {boardMoveMode && <div className="board-move-hint" role="status"><b>{manzhanDragMode ? "漫展 · 粉" : "共享衣橱"}</b><span>拖动高亮呈现到另一名玩家区域</span><small>也可以先点呈现，再点目标区域</small></div>}
+      {(boardMoveMode || sharedWardrobeResponseMode) && <div className="board-move-hint" role="status">
+        <b>{manzhanDragMode ? "漫展 · 粉" : sharedWardrobeResponseMode ? "共享衣橱 · 指定" : "共享衣橱"}</b>
+        <span>{manzhanDragMode
+          ? "拖动高亮呈现到另一名玩家区域"
+          : sharedWardrobeResponseMode
+            ? sharedWardrobeSelectActions.length > 0
+              ? `从 ${sharedWardrobeActor?.name} 的呈现区指定另一张牌`
+              : "没有可以指定的另一张呈现"
+            : "从另一名玩家的呈现区拖一张牌到你的区域"}</span>
+        {boardMoveMode && <small>也可以先点呈现，再点目标区域</small>}
+        {sharedWardrobeResponseMode && sharedWardrobePassAction && <button type="button" onClick={() => performAction(sharedWardrobePassAction)}>不指定</button>}
+      </div>}
 
       <section className="tabletop-arena">
         <div className="player-grid">
@@ -1072,7 +1094,7 @@ function GameTable({ mode, names, onExit }: { mode: Mode; names: string[]; onExi
             const hasDistinctTempIdentity = Boolean(player.tempIdentity && player.tempIdentity !== permanentIdentity);
             const targetActions = selectedPlayActions.filter((action) => action.targetId === player.id);
             const legalDropAction = moveActionToPlayer(player.id);
-            const crushGivers = game.players.filter((giver) => giver.crushTargetId === player.id);
+            const crushGivers = game.players.filter((giver) => giver.crushTargetIds.includes(player.id));
             return <article
               className={`player-zone player-${player.id} identity-${permanentIdentity} ${player.tempIdentity ? "has-temp-identity" : ""} ${player.id === game.active ? "current-player" : ""} ${legalDropAction ? "is-legal-drop" : ""} ${dragOverTargetId === player.id ? "is-drag-over" : ""}`}
               key={player.id}
@@ -1287,6 +1309,13 @@ function GameTable({ mode, names, onExit }: { mode: Mode; names: string[]; onExi
       </section></DecisionOverlay>}
 
       {fittingRoomNotice && <div className="fitting-room-result-toast" role="status" key={fittingRoomNotice.version}><small>{game.players[fittingRoomNotice.actorId].name} 的【闺蜜试衣间】</small><strong>没买到衣服</strong></div>}
+
+      {sharedWardrobeActorChoiceMode && sharedWardrobeActor && sharedWardrobeTarget && sharedWardrobeSelectedPresent && <DecisionOverlay minimized={choiceMinimized} onMinimizedChange={setChoiceMinimized} ariaLabel="共享衣橱移交选择"><section className="identity-choice-card certificate-choice">
+        <span className="choice-kicker">共享衣橱 · {sharedWardrobeTarget.name} 指定了</span>
+        <h2>【{shortName(sharedWardrobeSelectedPresent.name)}】</h2>
+        <p>将这张牌移给 {sharedWardrobeTarget.name}，或失去 2 Joy 并保留它。</p>
+        <div className="certificate-actions">{sharedWardrobeChoiceActions.map((action) => <button key={action.id} onClick={() => performAction(action)}>{action.type === "shared-wardrobe-transfer" ? `移给 ${sharedWardrobeTarget.name}` : "失去 2 Joy，保留"}</button>)}</div>
+      </section></DecisionOverlay>}
 
       {readingCheck && readingPlayer && isHumanDecision && <DecisionOverlay minimized={choiceMinimized} onMinimizedChange={setChoiceMinimized} ariaLabel="非二元读取选择"><section className="identity-choice-card certificate-choice">
         <span className="choice-kicker">【{readingCheck.sourceName}】即将判断身份</span>

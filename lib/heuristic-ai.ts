@@ -392,7 +392,7 @@ function scoreAction(view: VisibleGame, action: SimAction, memory: AiMemory, ran
       selfValue = 0.2;
       reasons.push(afterProgress < beforeProgress ? "把展示牌中的呈现用于破坏对手路线" : "把自己不需要的展示呈现交给其他玩家");
     }
-    if (self.crushTargetId === target.id) {
+    if (self.crushTargetIds.includes(target.id)) {
       selfValue += self.joy <= 1 ? 2.4 : 1.55;
       reasons.push(`立即把展示呈现打给心动对象 ${target.name}，额外获得 1 Joy`);
     }
@@ -427,6 +427,32 @@ function scoreAction(view: VisibleGame, action: SimAction, memory: AiMemory, ran
       blockingValue = (actorBefore - actorAfter) * 1.7;
       reasons.push(`自己留下【${kept.name}】，把【${given.name}】分给对方`);
     }
+  }
+  if (action.type === "shared-wardrobe-pass") {
+    selfValue = 0.15;
+    reasons.push("不指定另一张呈现，直接结束结算");
+  }
+  if (action.type === "shared-wardrobe-select" && movedPresent && source) {
+    const selfAfter = afterGainingPresentation(self, movedPresent);
+    const sourceAfter = afterRemovingPresentation(source, movedPresent);
+    const possibleGain = Math.max(0, goalCompletion(selfAfter, goal) - goalCompletion(self, goal)) * 1.8
+      + Math.max(0, cardAffinity(movedPresent, goal, self)) * 0.35;
+    const transferPressure = Math.max(0, expectedGoalCompletion(source, memory, source.id) - expectedGoalCompletion(sourceAfter, memory, source.id)) * 1.8
+      + possibleGain;
+    selfValue = possibleGain * 0.35;
+    blockingValue = Math.min(transferPressure, 2.4);
+    reasons.push(`指定【${movedPresent.name}】，迫使 ${source.name} 在移交与失去 2 Joy 之间选择`);
+  }
+  if (action.type === "shared-wardrobe-transfer" && movedPresent && source && target) {
+    const sourceAfter = afterRemovingPresentation(source, movedPresent);
+    const targetAfter = afterGainingPresentation(target, movedPresent);
+    selfValue = (goalCompletion(sourceAfter, goal) - goalCompletion(self, goal)) * 2.2;
+    blockingValue = (expectedGoalCompletion(target, memory, target.id) - expectedGoalCompletion(targetAfter, memory, target.id)) * 1.5;
+    reasons.push(`比较移交【${movedPresent.name}】造成的路线损失与失去 2 Joy`);
+  }
+  if (action.type === "shared-wardrobe-lose-joy") {
+    selfValue = self.joy <= 2 ? -3.8 : self.joy <= 4 ? -2.8 : -2.2;
+    reasons.push("保留被指定的呈现，承担 2 Joy 代价");
   }
   if (action.type === "confusion-pay") {
     selfValue = -(self.joy <= 1 ? 3.2 : self.joy === 2 ? 2.1 : 1.35) - (goal === "enby" ? 0.45 : 0);
@@ -647,10 +673,10 @@ function scoreAction(view: VisibleGame, action: SimAction, memory: AiMemory, ran
       }
       if (card.name === "心动夸夸" && target) {
         const reusableTargetedCards = view.selfHand.filter((held) => held.id !== card.id && (held.kind === "present" || ["她", "他", "理发", "卸甲", "迷茫", "老男人看了你一眼", "你pass吗？"].includes(held.name))).length;
-        const keepsMarker = self.crushTargetId === target.id;
-        selfValue += 0.45 + Math.min(1.2, reusableTargetedCards * 0.3) + targetThreat(view, memory, target.id) * 0.12 + (keepsMarker ? 0.2 : 0);
+        const alreadyMarked = self.crushTargetIds.includes(target.id);
+        selfValue += 0.45 + Math.min(1.2, reusableTargetedCards * 0.3) + targetThreat(view, memory, target.id) * 0.12 + (alreadyMarked ? -0.15 : 0.3);
         blockingValue -= target.joy <= 1 ? 1.15 : 0.75;
-        reasons.push(keepsMarker ? "维持心动对象，准备继续对其出牌获取 Joy" : "标记后续较可能继续互动的对象");
+        reasons.push(alreadyMarked ? "重复夸夸仍给予 Joy，但不会增加新的心动对象" : "新增一个可在后续互动中获得 Joy 的心动对象");
       }
       const identityActionName = card.name === "她" || card.name === "他" ? card.name : undefined;
       if (identityActionName && target) {
@@ -691,12 +717,13 @@ function scoreAction(view: VisibleGame, action: SimAction, memory: AiMemory, ran
       }
       if (card.name === "共享衣橱" && source && target && movedPresent) {
         const sourceAfter = afterRemovingPresentation(source, movedPresent);
-        const targetAfter = afterGainingPresentation(target, movedPresent);
+        const destination = action.destinationPlayerId === undefined ? target : view.players[action.destinationPlayerId];
+        const destinationAfter = afterGainingPresentation(destination, movedPresent);
         if (source.id === self.id) selfValue += (goalCompletion(sourceAfter, goal) - goalCompletion(self, goal)) * 2;
         else blockingValue += (expectedGoalCompletion(source, memory, source.id) - expectedGoalCompletion(sourceAfter, memory, source.id)) * 2;
-        if (target.id === self.id) selfValue += (goalCompletion(targetAfter, goal) - goalCompletion(self, goal)) * 2;
-        else blockingValue += (expectedGoalCompletion(target, memory, target.id) - expectedGoalCompletion(targetAfter, memory, target.id)) * 2;
-        reasons.push("按移出、衣物覆盖和移入后的完整场面重新估值");
+        if (destination.id === self.id) selfValue += (goalCompletion(destinationAfter, goal) - goalCompletion(self, goal)) * 2;
+        else blockingValue += (expectedGoalCompletion(destination, memory, destination.id) - expectedGoalCompletion(destinationAfter, memory, destination.id)) * 2;
+        reasons.push("先从对方处取得呈现，并估算其随后指定己方呈现的风险");
       }
       if (card.name === "打烊" && marketCard) {
         blockingValue += view.players.filter((player) => player.id !== self.id).reduce((best, player) => Math.max(best, expectedCardAffinity(marketCard, player, memory, player.id)), 0);
@@ -760,7 +787,7 @@ function scoreAction(view: VisibleGame, action: SimAction, memory: AiMemory, ran
         reasons.push("获得 1 Joy，并永久免疫两张职场牌");
       }
       if (card.name === "封心锁爱") {
-        const givers = view.players.filter((player) => player.crushTargetId === self.id);
+        const givers = view.players.filter((player) => player.crushTargetIds.includes(self.id));
         const reflectedLoss = givers.reduce((sum, giver) => sum + Math.min(2, giver.joy), 0);
         selfValue += givers.length > 0 ? 2.1 : 1.15;
         blockingValue += reflectedLoss * 0.8;
@@ -945,7 +972,7 @@ function scoreAction(view: VisibleGame, action: SimAction, memory: AiMemory, ran
         blockingValue -= Math.max(0, gain - (self.items.includes("自由职业者") ? 0 : 1)) * 0.3;
         reasons.push("自由职业者不获得本次 Joy；其余玩家各获得 1 Joy");
       }
-      if (card.name !== "心动夸夸" && target && self.crushTargetId === target.id) {
+      if (card.name !== "心动夸夸" && target && self.crushTargetIds.includes(target.id)) {
         selfValue += self.joy <= 1 ? 2.4 : 1.55;
         reasons.push(`对心动对象 ${target.name} 使用牌，额外获得 1 Joy`);
       }
