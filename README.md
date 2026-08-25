@@ -1,100 +1,329 @@
-# vinext-starter
+# dress-up!
 
-A clean full-stack starter running on
-[vinext](https://github.com/cloudflare/vinext), with optional Cloudflare D1 and
-Drizzle support.
+**4 人隐藏目标策略卡牌游戏**
 
-## Prerequisites
+> 在呈现、身份、Joy 与社会环境之间寻找自己的路线，也顺手干扰一下别人。
 
-- Node.js `>=22.13.0`
+🎮 **在线试玩：**
+https://dress-up.witchtide.workers.dev/
 
-## Quick Start
+---
+
+## 游戏简介
+
+**dress-up!** 是一款围绕性别呈现、身份读取与社会互动设计的 4 人策略卡牌游戏。
+
+每名玩家秘密持有一个目标，通过拿牌和出牌改变自己与其他玩家的：
+
+* 呈现
+* 长期与临时身份
+* Joy
+* 读取方向
+* 物件与标记
+* 场地状态
+
+主牌堆耗尽并完成最后一轮后，所有玩家公开目标并计分：
+
+> **总分 = 目标得分 + 剩余 Joy**
+
+总分最高者获胜。
+
+---
+
+## 一局游戏在做什么？
+
+核心回合非常简单：
+
+> **拿 1 → 打 1**
+
+你的回合中：
+
+1. 从牌堆顶暗摸 1 张，或从 3 张公共牌中拿 1 张；
+2. 从手牌打出 1 张合法的牌；
+3. 完整结算牌效；
+4. 轮到下一名玩家。
+
+规则复杂度主要来自牌与牌之间的互动，以及不同秘密目标带来的策略方向。
+
+---
+
+## 三类主牌
+
+### 呈现牌
+
+打出后留在一名玩家面前。
+
+呈现可能影响：
+
+* ✦ 检定数
+* 服装
+* 终局目标
+* 其他牌的触发条件
+
+同一名玩家不能同时拥有两张同名呈现。
+
+每名玩家同时只能保留 **1 件服装**。
+
+---
+
+### 行动牌
+
+打出后结算牌效，随后弃置。
+
+部分行动会产生持续存在的：
+
+* 物件
+* 身份变化
+* 关系标记
+* 特殊状态
+
+---
+
+### 场地牌
+
+进入桌面中央并持续影响全桌。
+
+场上同时最多存在 **1 个场地**。新场地进入时，原场地弃置。
+
+---
+
+## 身份与读取
+
+游戏中存在三种身份：
+
+* 🔵 男性
+* 🩷 女性
+* ⬜ 非二元
+
+部分牌具有蓝 / 粉两种效果，称为**二切牌**。
+
+部分牌具有蓝 / 白 / 粉三种效果，称为**三切牌**。
+
+### 非二元读取
+
+非二元玩家拥有持续存在的二元读取方向：
+
+* ⬜→🔵
+* ⬜→🩷
+
+遇到二切效果时，按照当前读取方向结算。
+
+每当一个二切效果即将判断你的读取时，可以支付 **1 Joy**，永久翻转读取方向，再继续结算。
+
+遇到三切牌时，非二元玩家直接使用⬜白色效果。
+
+---
+
+## Joy
+
+Joy 是游戏中的公开资源。
+
+它可以：
+
+* 被获得
+* 被支付
+* 被失去
+* 用于发动部分选择与反制
+* 保留到终局计分
+
+游戏结束时：
+
+> **每剩余 1 Joy = 1 分**
+
+因此，Joy 同时承担行动资源与终局分数的角色。
+
+---
+
+## 秘密目标
+
+每局从 5 张目标牌中随机使用 4 张，每名玩家秘密获得 1 张。
+
+目标会要求玩家追求不同的身份、呈现或桌面状态，因此同一张牌对不同玩家的价值可能完全不同。
+
+目标通常只有本人可以查看，部分牌效能够：
+
+* 查看目标
+* 暴露目标信息
+* 交换目标
+* 根据公开行为推测其他玩家的目标
+
+---
+
+## 第一次玩，只需要记住
+
+**拿 1，打 1。**
+
+**呈现留在面前；行动结算后弃置；场地影响全桌。**
+
+**蓝看蓝，粉看粉；非二元二切看读取，三切看白。**
+
+**✦ 计算检定；每人只能有 1 件服装。**
+
+**最后算：目标得分 + Joy。**
+
+游戏内右上角的 `?` 可以随时查看规则摘要。
+
+---
+
+## 当前版本
+
+项目目前处于持续迭代中的线上原型阶段。
+
+已经实现：
+
+* 4 人完整对局
+* 1 名玩家 + 3 名启发式 AI
+* 隐藏目标
+* 公共牌列
+* 呈现 / 行动 / 场地系统
+* 长期与临时身份
+* 非二元读取
+* 身份历史
+* Joy
+* 物件与关系标记
+* 终局自动计分
+* AI 对公开行为的有限目标推理
+* 对局记录
+* 桌面端界面
+* 基础移动端适配
+
+卡牌数量、牌效、视觉和 AI 策略仍可能继续调整。
+
+---
+
+## 技术栈
+
+项目目前主要使用：
+
+* TypeScript
+* React
+* Vite
+* vinext
+* Cloudflare Workers
+* Cloudflare KV
+* Cloudflare Images
+
+代码托管于 GitHub，并通过 Cloudflare Workers Builds 自动部署。
+
+`main` 分支更新后，线上版本会自动重新构建。
+
+---
+
+## 本地运行
+
+需要先安装 Node.js。
+
+克隆项目后安装依赖：
 
 ```bash
 npm install
-npm run dev
-npm run build
 ```
 
-This starter does not use `wrangler.jsonc`.
+启动 vinext 开发服务器：
 
-## Included Shape
-
-- edit site code under `app/`
-- `.openai/hosting.json` declares optional Sites D1 and R2 bindings
-- `vite.config.ts` simulates declared bindings for local development
-- `db/schema.ts` starts intentionally empty
-- `examples/d1/` contains an optional D1 example surface
-- `drizzle.config.ts` supports local migration generation when needed
-
-## Workspace Auth Headers
-
-Signed-in visitors receive both `oai-authenticated-user-id` and `oai-authenticated-user-email`. Private Sites require every visitor to sign in; public Sites may also have anonymous visitors, for whom neither header is present.
-
-The user ID is stable for the same user on the same Site and different across Sites. Email and name are intended for display or contact purposes.
-
-SIWC-authenticated workspace sites may also receive
-`oai-authenticated-user-full-name` when the user's SIWC profile has a non-empty
-`name` claim. The full-name value is percent-encoded UTF-8 and is accompanied by
-`oai-authenticated-user-full-name-encoding: percent-encoded-utf-8`.
-
-Treat the full name as optional and fall back to email when it is absent:
-
-```tsx
-import { headers } from "next/headers";
-
-export default async function Home() {
-  const requestHeaders = await headers();
-  const userId = requestHeaders.get("oai-authenticated-user-id");
-  const email = requestHeaders.get("oai-authenticated-user-email");
-  const encodedFullName = requestHeaders.get("oai-authenticated-user-full-name");
-  const fullName =
-    encodedFullName &&
-    requestHeaders.get("oai-authenticated-user-full-name-encoding") ===
-      "percent-encoded-utf-8"
-      ? decodeURIComponent(encodedFullName)
-      : null;
-
-  const displayName = fullName ?? email;
-  // ...
-}
+```bash
+npm run dev:vinext
 ```
 
-## Optional Dispatch-Owned ChatGPT Sign-In
+Windows PowerShell 如果限制 `.ps1` 脚本，可以使用：
 
-Import the ready-to-use helpers from `app/chatgpt-auth.ts` when the site needs
-optional or required ChatGPT sign-in:
+```powershell
+npm.cmd run dev:vinext
+```
 
-- Use `getChatGPTUser()` for optional signed-in UI.
-- Use `requireChatGPTUser(returnTo)` for server-rendered pages that should send
-  anonymous visitors through Sign in with ChatGPT.
-- Use `chatGPTSignInPath(returnTo)` and `chatGPTSignOutPath(returnTo)` for
-  browser links or actions.
-- Pass a same-origin relative `returnTo` path for the destination after sign-in
-  or sign-out. The helper validates and safely encodes it.
-- Mark protected pages with `export const dynamic = "force-dynamic"` because
-  they depend on per-request identity headers.
+随后根据终端提示打开本地地址，一般为：
 
-Dispatch owns `/signin-with-chatgpt`, `/signout-with-chatgpt`, `/callback`, the
-OAuth cookies, and identity header injection. Do not implement app routes for
-those reserved paths. Routes that do not import and call the helper remain
-anonymous-compatible.
+```text
+http://localhost:3000
+```
 
-SIWC establishes identity only; it does not prove workspace membership. Use the
-Sites hosting platform's access policy controls for workspace-wide restrictions,
-or enforce explicit server-side membership or allowlist checks.
+---
 
-Use SIWC for account pages, user-specific dashboards, saved records, and write
-actions tied to the current ChatGPT user. Leave public content anonymous.
+## 构建
 
-## Useful Commands
+生产构建：
 
-- `npm run dev`: start local development
-- `npm run build`: verify the vinext build output
-- `npm test`: build the starter and verify its rendered loading skeleton
-- `npm run db:generate`: generate Drizzle migrations after schema changes
+```bash
+npm run build:vinext
+```
 
-## Learn More
+Windows PowerShell：
 
-- [vinext Documentation](https://github.com/cloudflare/vinext)
-- [Drizzle D1 Guide](https://orm.drizzle.team/docs/get-started/d1-new)
+```powershell
+npm.cmd run build:vinext
+```
+
+---
+
+## Cloudflare 部署
+
+项目已经配置 Cloudflare Workers。
+
+手动部署：
+
+```bash
+npm run deploy:vinext
+```
+
+当前仓库已经连接 GitHub → Cloudflare 自动部署，因此日常开发通常只需要：
+
+```bash
+git add .
+git commit -m "描述本次修改"
+git push
+```
+
+随后 Cloudflare 会自动构建并更新线上版本。
+
+---
+
+## 项目结构
+
+```text
+app/
+  page.tsx          主要游戏界面
+  globals.css       全局与响应式样式
+
+lib/
+  ai-engine.ts      核心游戏状态与规则结算
+  heuristic-ai.ts   AI 决策逻辑
+
+public/assets/
+  actions/          行动牌素材
+  cards/            卡牌素材
+  presentations/    呈现牌素材
+  venues/           场地牌素材
+  ui/               UI 素材
+
+scripts/
+  模拟与分析脚本
+
+tests/
+  游戏与渲染测试
+
+worker/
+  Cloudflare Worker 入口
+
+wrangler.jsonc
+  Cloudflare Workers 配置
+```
+
+---
+
+## 关于这个项目
+
+**dress-up!** 试图把性别呈现与社会读取变成真正能够操作、交换、推测和博弈的桌面机制。
+
+这里的身份会发生历史，呈现会被移动，环境会改变规则，别人也会根据公开行为猜测你的目标。
+
+它目前首先是一款游戏。
+
+希望它足够好玩，也希望那些发生在牌桌上的奇怪局面，能够让一些原本抽象的经验变得可以被看见。
+
+---
+
+## License
+
+项目仍处于原型开发阶段。
+
+代码、游戏规则、美术素材及其他内容的授权方式将在后续版本中进一步明确。未经许可，请勿直接用于商业发行。
