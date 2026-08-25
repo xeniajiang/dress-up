@@ -25,7 +25,6 @@ import {
   applyKnowledgeEvents,
   chooseHeuristicAction,
   createAiMemories,
-  formatDecisionLog,
   observePublicAction,
   type AiMemory,
 } from "../lib/heuristic-ai";
@@ -565,8 +564,6 @@ function GameTable({ mode, names, onExit }: { mode: Mode; names: string[]; onExi
   const [memories, setMemories] = useState<AiMemory[]>(() => createAiMemories(4));
   const [running, setRunning] = useState(mode === "spectate");
   const [speed, setSpeed] = useState(700);
-  const [debug, setDebug] = useState(true);
-  const [decisionLogs, setDecisionLogs] = useState<string[]>([]);
   const [stepCount, setStepCount] = useState(0);
   const [ruleOpen, setRuleOpen] = useState(false);
   const [logOpen, setLogOpen] = useState(false);
@@ -609,7 +606,6 @@ function GameTable({ mode, names, onExit }: { mode: Mode; names: string[]; onExi
       if (mode === "solo" && chosen.targetId === 0 && pronounCardName && !chosen.pronounResponse) {
         setPendingPronoun({ action: chosen, actorId, cardName: pronounCardName });
         setRunning(false);
-        if (decision) setDecisionLogs((logs) => [formatDecisionLog(before.players[actorId].name, decision), ...logs].slice(0, 10));
         return before;
       }
       const after = applyLegalAction(before, chosen);
@@ -661,7 +657,6 @@ function GameTable({ mode, names, onExit }: { mode: Mode; names: string[]; onExi
       if (reveal?.type === "reveal" && (mode === "spectate" || reveal.observerId === 0)) {
         setTruthReveal({ ...reveal, version: Date.now() });
       }
-      if (decision) setDecisionLogs((logs) => [formatDecisionLog(before.players[actorId].name, decision), ...logs].slice(0, 10));
       setStepCount((count) => count + 1);
       return after;
     });
@@ -709,7 +704,6 @@ function GameTable({ mode, names, onExit }: { mode: Mode; names: string[]; onExi
   const restart = () => {
     setGame(createSimGame(names));
     setMemories(createAiMemories(4));
-    setDecisionLogs([]);
     setStepCount(0);
     setRunning(mode === "spectate");
     setPendingPronoun(null);
@@ -1131,9 +1125,7 @@ function GameTable({ mode, names, onExit }: { mode: Mode; names: string[]; onExi
 
       {logOpen && <aside className="event-drawer" aria-label="对局记录">
         <header><b>对局记录</b><button onClick={() => setLogOpen(false)} aria-label="关闭记录">×</button></header>
-        {debug && decisionLogs[0] && <pre>{decisionLogs[0]}</pre>}
-        {game.events.slice(0, 10).map((item, index) => <p key={`${item}-${index}`}>{item}</p>)}
-        <button className="debug-toggle" onClick={() => setDebug((value) => !value)}>AI 评分 {debug ? "开" : "关"}</button>
+        {game.events.map((item, index) => <p key={`${item}-${index}`}>{item}</p>)}
       </aside>}
 
       {truthReveal && <button className="truth-reveal-toast" onClick={() => setTruthReveal(null)} key={truthReveal.version} aria-label="收起目标查看结果">

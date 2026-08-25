@@ -829,7 +829,7 @@ function clone(game: SimGame): SimGame {
 }
 
 function event(game: SimGame, text: string) {
-  game.events = [text, ...game.events].slice(0, 18);
+  game.events = [text, ...game.events];
 }
 
 function recordScoreSource(player: SimPlayer, cardName: string, joy: number) {
