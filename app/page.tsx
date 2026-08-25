@@ -1415,7 +1415,7 @@ export default function Home() {
       <div className="neon-orb orb-pink" /><div className="neon-orb orb-blue" />
       <header className="landing-brand"><strong>dress-<em>up!</em></strong></header>
       <section className="landing-hero">
-        <h1><span className="landing-title-main">盛装登场</span><span className="landing-title-sub">开启我们的<em>性别探索</em>之旅</span></h1>
+        <h1><span className="landing-title-main"><span className="title-ku">酷</span>装登场</span><span className="landing-title-sub">开启我们的<em>性别探索</em>之旅</span></h1>
         <div className="hero-intro"><strong>国内首款性别表达主题桌游</strong><p>一场关于身份、呈现与被看见的四人卡牌游戏。<br />穿衣、试探、观察别人，再做一点有理由的坏事。</p></div>
       </section>
       <section className="mode-card">

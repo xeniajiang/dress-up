@@ -679,11 +679,33 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline-color:
 }
 .landing-hero h1 span { display: block; }
 .landing-title-main {
-  color: var(--pink);
-  background: linear-gradient(105deg, #d785a6 8%, #a582d1 76%, #789bd2 112%);
+  color: #a978c8;
+  -webkit-text-fill-color: #a978c8;
+  background: none;
+}
+
+.landing-title-main .title-ku {
+  display: inline-block;
+
+  font-size: 1.15em;
+
+  background: linear-gradient(
+    135deg,
+    #6396df 0%,
+    #8e83d3 42%,
+    #c879bd 68%,
+    #ee729d 100%
+  );
+
   background-clip: text;
   -webkit-background-clip: text;
+  color: transparent;
   -webkit-text-fill-color: transparent;
+}
+
+/* 删除之前给“酷”加的短横线 */
+.landing-title-main .title-ku::after {
+  content: none;
 }
 .landing-hero h1 .landing-title-sub {
   margin: 12px 0 0 clamp(18px, 3vw, 44px);

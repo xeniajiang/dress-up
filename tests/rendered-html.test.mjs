@@ -33,7 +33,7 @@ test("server-renders the dress-up prototype landing page", async () => {
   assert.match(html, /DRESS-UP! · 四人身份卡牌游戏/i);
   assert.match(html, /4 AI 观战/);
   assert.match(html, /1 人 \+ 3 AI/);
-  assert.match(html, /盛装登场/);
+  assert.match(html, /酷装登场/);
   assert.match(html, /性别探索/);
   assert.match(html, /国内首款性别表达主题桌游/);
   assert.match(html, /开始观战/);
