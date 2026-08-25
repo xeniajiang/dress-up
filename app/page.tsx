@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState, type DragEvent, type MouseEvent, type ReactNode, type TouchEvent, type WheelEvent } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type DragEvent, type MouseEvent, type ReactNode, type TouchEvent, type WheelEvent } from "react";
 import {
   applyLegalAction,
   compareFinalStanding,
@@ -452,12 +452,17 @@ function CardArtworkFace({ card }: { card: SimCard }) {
 function CardFace({ card }: { card: SimCard }) {
   const [showEffect, setShowEffect] = useState(false);
   const [touchStartX, setTouchStartX] = useState<number | null>(null);
+  const hoverTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const flippable = hasEffectFace(card);
   const hasArtworkBack =
     card.kind === "venue" ||
     isTernaryEffectCard(card) ||
     isSplitCard(card);
+
+  useEffect(() => () => {
+    if (hoverTimerRef.current) clearTimeout(hoverTimerRef.current);
+  }, []);
 
   if (!flippable) return <CardFront card={card} />;
 
@@ -495,12 +500,32 @@ function CardFace({ card }: { card: SimCard }) {
     setShowEffect(deltaX > 0);
   };
 
+  const handleMouseEnter = () => {
+    if (!window.matchMedia("(hover: hover) and (pointer: fine)").matches) return;
+    if (hoverTimerRef.current) clearTimeout(hoverTimerRef.current);
+    hoverTimerRef.current = setTimeout(() => {
+      setShowEffect(true);
+      hoverTimerRef.current = null;
+    }, 180);
+  };
+
+  const handleMouseLeave = () => {
+    if (!window.matchMedia("(hover: hover) and (pointer: fine)").matches) return;
+    if (hoverTimerRef.current) {
+      clearTimeout(hoverTimerRef.current);
+      hoverTimerRef.current = null;
+    }
+    setShowEffect(false);
+  };
+
   return (
     <div
       className="action-flip-shell"
       onWheel={handleWheel}
       onTouchStart={handleTouchStart}
       onTouchEnd={handleTouchEnd}
+      onMouseEnter={handleMouseEnter}
+      onMouseLeave={handleMouseLeave}
     >
       <div className={`action-flip-card ${showEffect ? "show-effect" : ""}`}>
         <div className="action-flip-face action-flip-front">
@@ -1294,6 +1319,11 @@ function GameTable({ mode, names, onExit }: { mode: Mode; names: string[]; onExi
         </div>
         <button onClick={() => setRuleOpen(false)}>×</button>
       </header>
+
+      <p className="card-effect-gesture" role="note">
+        <span className="card-effect-gesture-desktop">悬浮或滚动查看牌面效果</span>
+        <span className="card-effect-gesture-mobile">左右滑动查看牌面效果</span>
+      </p>
 
       <section>
         <b>dress-up! · 4 人隐藏目标策略卡牌游戏</b>

@@ -323,6 +323,20 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 2px s
 .rule-drawer section { padding: 24px 0; border-bottom: 1px solid rgba(18,15,24,.15); }
 .rule-drawer section b { font-size: 14px; }
 .rule-drawer section p { color: #5f5761; font-size: 12px; line-height: 1.8; margin: 8px 0 0; }
+.card-effect-gesture {
+  margin: 18px 0 -2px;
+  padding: 10px 12px;
+  border: 1px solid #cdb9df;
+  border-radius: 10px;
+  background: linear-gradient(135deg, #f9f0fb, #edf4ff);
+  color: #574268;
+  font-size: 12px;
+  font-weight: 750;
+  line-height: 1.4;
+  letter-spacing: .01em;
+}
+.card-effect-gesture::before { content: "↕"; display: inline-block; margin-right: 8px; color: #8b5cb5; font-size: 16px; line-height: .8; vertical-align: -1px; }
+.card-effect-gesture-mobile { display: none; }
 
 .result-page {
   position: relative;
@@ -2223,6 +2237,10 @@ button.table-card[aria-disabled="true"] { cursor: default; }
    Keep this at the very end of globals.css
    ========================================================= */
 @media (max-width: 760px) {
+  .card-effect-gesture-desktop { display: none; }
+  .card-effect-gesture-mobile { display: inline; }
+  .card-effect-gesture::before { content: "↔"; }
+
   html,
   body {
     width: 100%;

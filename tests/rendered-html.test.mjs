@@ -33,7 +33,7 @@ test("server-renders the dress-up prototype landing page", async () => {
   assert.match(html, /DRESS-UP! · 四人身份卡牌游戏/i);
   assert.match(html, /4 AI 观战/);
   assert.match(html, /1 人 \+ 3 AI/);
-  assert.match(html, /酷装登场/);
+  assert.match(html, /酷<\/span>装登场/);
   assert.match(html, /性别探索/);
   assert.match(html, /国内首款性别表达主题桌游/);
   assert.match(html, /开始观战/);
@@ -66,6 +66,13 @@ test("keeps local game modes, three card categories, and metadata in the applica
   assert.match(page, /你pass吗？/);
   assert.match(page, /身份肯定/);
   assert.match(page, /temp-identity-token/);
+  assert.match(page, /悬浮或滚动查看牌面效果/);
+  assert.match(page, /左右滑动查看牌面效果/);
+  assert.doesNotMatch(page, /ArrowLeft|ArrowRight/);
+  assert.match(page, /setTimeout\(\(\) => \{[\s\S]*?setShowEffect\(true\);[\s\S]*?\}, 180\)/);
+  assert.match(page, /onWheel=\{handleWheel\}/);
+  assert.match(page, /onTouchStart=\{handleTouchStart\}/);
+  assert.match(page, /onMouseEnter=\{handleMouseEnter\}/);
   assert.match(page, /BINARY_EFFECT_CARDS = new Set\(\["美妆博主", "你pass吗？", "老男人看了你一眼", "职场 Dress Code"\]\)/);
   assert.match(page, /TERNARY_EFFECT_CARDS = new Set\(\["扑朔迷离", "先入为主"\]\)/);
   assert.doesNotMatch(page, /还好试了一下/);
