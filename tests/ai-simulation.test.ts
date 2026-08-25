@@ -1311,6 +1311,65 @@ test("美妆博主可以不打出展示牌并按原顺序沉底", () => {
   assert.equal(resolved.active, 1);
 });
 
+test("非二元蓝读取（Joy≥1）时美妆博主仍可合法打出，且保持蓝读取获得 +2 Joy", () => {
+  let beauty = createSimGame(["A", "B", "C", "D"]);
+  beauty.active = 0;
+  beauty.phase = "play";
+  beauty.players[0].identity = "nonbinary";
+  beauty.players[0].reading = "male";
+  beauty.players[0].joy = 2;
+  beauty.players[0].hand = [{ id: "enby-blue-beauty", name: "美妆博主", kind: "action" }];
+
+  const plays = enumerateLegalActions(beauty).filter((action) => action.cardId === "enby-blue-beauty");
+  assert.equal(plays.length, 1, "非二元蓝读取时只生成一个合法打出动作（否则前端 immediate.length === 1 判定会失败）");
+  assert.equal(plays[0].targetId, undefined);
+  assert.equal(plays[0].marketCardId, undefined);
+  assert.equal(plays[0].presentId, undefined);
+  assert.equal(plays[0].requiredReading, undefined, "动作不预置读取方向，交由读取检定选择");
+
+  beauty = applyLegalAction(beauty, plays[0]);
+  assert.ok(beauty.readingPrompt, "应触发非二元玩家的读取检定");
+  assert.equal(beauty.readingPrompt!.checks[0].sourceName, "美妆博主");
+
+  const options = enumerateLegalActions(beauty);
+  const keep = options.find((action) => action.type === "reading-keep");
+  const sw = options.find((action) => action.type === "reading-switch");
+  assert.ok(keep, "可保持蓝读取");
+  assert.ok(sw, "Joy≥1 时可支付 1 Joy 切为粉读取");
+
+  const kept = applyLegalAction(beauty, keep!);
+  assert.equal(kept.players[0].reading, "male", "保持蓝读取不翻转");
+  assert.equal(kept.players[0].joy, 4, "保持蓝读取结算美妆博主蓝栏 +2 Joy");
+  assert.equal(kept.beautyOffer, null, "蓝栏不触发展示");
+  assert.equal(kept.players[0].hand.length, 0, "美妆博主已从手牌打出");
+});
+
+test("非二元蓝读取时可支付 1 Joy 切为粉读取结算美妆博主展示牌堆顶三张", () => {
+  let beauty = createSimGame(["A", "B", "C", "D"]);
+  beauty.active = 0;
+  beauty.phase = "play";
+  beauty.players[0].identity = "nonbinary";
+  beauty.players[0].reading = "male";
+  beauty.players[0].joy = 2;
+  beauty.players[0].hand = [{ id: "enby-switch-beauty", name: "美妆博主", kind: "action" }];
+  beauty.deck = [
+    { id: "sw-dress", name: "商场专柜里的裙子", kind: "present", checked: true, dress: true, clothing: true },
+    { id: "sw-action", name: "心动夸夸", kind: "action" },
+    { id: "sw-nails", name: "美甲", kind: "present", checked: true },
+    { id: "sw-bottom", name: "打烊", kind: "action" },
+  ];
+
+  const play = enumerateLegalActions(beauty).find((action) => action.cardId === "enby-switch-beauty")!;
+  beauty = applyLegalAction(beauty, play);
+  assert.ok(beauty.readingPrompt, "应触发非二元玩家的读取检定");
+
+  const switchOption = enumerateLegalActions(beauty).find((action) => action.type === "reading-switch")!;
+  const switched = applyLegalAction(beauty, switchOption);
+  assert.equal(switched.players[0].reading, "female", "支付 1 Joy 后永久切为粉读取");
+  assert.equal(switched.players[0].joy, 1, "支付 1 Joy 后无蓝栏收益");
+  assert.deepEqual(switched.beautyOffer?.revealed.map((card) => card.id), ["sw-dress", "sw-action", "sw-nails"], "按粉读取展示牌堆顶三张");
+});
+
 test("翻箱倒柜重洗公共牌列", () => {
   const rummage = createSimGame(["A", "B", "C", "D"]);
   rummage.active = 0;

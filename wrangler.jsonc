@@ -1,7 +1,7 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "dress-up",
-  "compatibility_date": "2026-08-24",
+  "compatibility_date": "2026-05-22",
   "compatibility_flags": [
     "nodejs_compat"
   ],

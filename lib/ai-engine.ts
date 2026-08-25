@@ -481,11 +481,7 @@ function enumerateCardPlayActions(game: SimGame, actor: SimPlayer, card: SimCard
     const historyMatchesCurrent = history.at(-1)?.identity === actor.identity;
     if (!actor.items.includes("改好证了！") && historyMatchesCurrent && history.length > 1) pushPlay(actions, card, " → 恢复上一层长期身份");
   } else if (card.name === "美妆博主") {
-    if ((actor.tempIdentity ?? actor.identity) === "nonbinary") {
-      if (actor.reading === "male" || actor.joy >= 1) pushPlay(actions, card, " → 蓝栏 +2 Joy", { requiredReading: "male" });
-      if (actor.reading === "female" || actor.joy >= 1) pushPlay(actions, card, " → 粉栏展示牌堆顶 3 张", { requiredReading: "female" });
-    } else if (simSide(actor) === "male") pushPlay(actions, card, "");
-    else pushPlay(actions, card, "");
+    pushPlay(actions, card, "");
   } else if (card.name === "身份肯定") {
     everyone.filter((target) => target.tempIdentity !== null && !target.items.includes("改好证了！")).forEach((target) => pushPlay(actions, card, ` → ${target.name}`, { targetId: target.id }));
   } else if (card.name === "扑朔迷离" || card.name === "先入为主") {
