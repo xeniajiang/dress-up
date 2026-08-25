@@ -1014,6 +1014,47 @@ test("伪娘团只连接两名蓝读取且至少有两个检定呈现的玩家",
   assert.deepEqual(acceptedGame.players[1].scoreSources, [{ cardName: "伪娘团", joy: 2 }]);
 });
 
+test("粉读非二元玩家打出伪娘团时可支付 1 Joy 切为蓝读取", () => {
+  const checked = (id: string) => ({ id, name: id, kind: "present" as const, checked: true });
+  let game = createSimGame(["Human", "Partner", "C", "D"]);
+  game.active = 0;
+  game.phase = "play";
+  game.players[0].identity = "nonbinary";
+  game.players[0].reading = "female";
+  game.players[0].joy = 3;
+  game.players[0].presents = [checked("actor-a"), checked("actor-b")];
+  game.players[1].identity = "male";
+  game.players[1].reading = "male";
+  game.players[1].presents = [checked("partner-a"), checked("partner-b")];
+  game.players[0].hand = [{ id: "actor-pink-femboy-group", name: "伪娘团", kind: "action" }];
+
+  const play = enumerateLegalActions(game).find((action) => action.cardId === "actor-pink-femboy-group" && action.targetId === 1);
+  assert.ok(play, "粉读非二元有 1 Joy 时应能选择合格搭档打出伪娘团");
+  game = applyLegalAction(game, play);
+
+  assert.equal(decisionPlayerId(game), 0, "读取询问应交给打牌的粉读非二元玩家本人");
+  assert.equal(game.readingPrompt?.checks[0].playerId, 0);
+  assert.equal(game.readingPrompt?.checks[0].sourceName, "伪娘团");
+
+  const options = enumerateLegalActions(game);
+  const keep = options.find((action) => action.type === "reading-keep");
+  const switchReading = options.find((action) => action.type === "reading-switch");
+  assert.ok(keep, "询问框应提供保持粉读取的选项");
+  assert.ok(switchReading, "询问框应提供支付 1 Joy 切为蓝读取的选项");
+
+  const declined = applyLegalAction(game, keep!);
+  assert.equal(declined.players[0].reading, "female");
+  assert.equal(declined.players[0].joy, 3);
+  assert.equal(declined.players[0].scoreSources.length, 0);
+
+  const switched = applyLegalAction(game, switchReading!);
+  assert.equal(switched.players[0].reading, "male");
+  assert.equal(switched.players[0].joy, 4, "支付 1 Joy 后从伪娘团获得 2 Joy，净增 1");
+  assert.equal(switched.players[1].joy, 4);
+  assert.deepEqual(switched.players[0].scoreSources, [{ cardName: "伪娘团", joy: 2 }]);
+  assert.deepEqual(switched.players[1].scoreSources, [{ cardName: "伪娘团", joy: 2 }]);
+});
+
 test("空间主理人与伪娘团使用被三切持续状态修正后的当前检定数", () => {
   const checked = (id: string) => ({ id, name: id, kind: "present" as const, checked: true });
 
@@ -1159,6 +1200,30 @@ test("换一种活法公开交换目标牌，确定记忆与目标推断随牌�
   assert.equal(memories[3].knownTargets[2], "enby");
   assert.equal(memories[1].knownTargets[2], "enby", "交换发起者知道自己交出的目标去了哪里");
   assert.equal(memories[2].knownTargets[1], "跨女", "交换对象知道自己交出的目标去了哪里");
+});
+
+test("换一种活法即使存在交换目标也可以主动空出", () => {
+  const base = createSimGame(["A", "B", "C", "D"]);
+  base.active = 0;
+  base.phase = "play";
+  base.players[0].goal = "enby";
+  base.players[1].goal = "跨女";
+  base.players[2].goal = "男娘";
+  base.players[3].goal = "文艺男";
+  base.players[0].hand = [{ id: "swap-goals-fizzle", name: "换一种活法", kind: "action" }];
+  const goalsBefore = base.players.map((player) => player.goal);
+
+  const actions = enumerateLegalActions(base).filter((action) => action.cardId === "swap-goals-fizzle");
+  assert.equal(actions.filter((action) => action.targetId !== undefined).length, 3, "仍应保留三名可交换目标");
+  const fizzle = actions.find((action) => action.id.endsWith(":fizzle"));
+  assert.ok(fizzle, "存在可交换目标时也应提供空出动作");
+  assert.equal(fizzle.targetId, undefined);
+
+  const game = applyLegalAction(base, fizzle);
+  assert.deepEqual(game.players.map((player) => player.goal), goalsBefore, "空出不得交换任何人的隐藏目标");
+  assert.ok(game.discard.some((card) => card.id === "swap-goals-fizzle"), "空出的牌应进入弃牌堆");
+  assert.equal(game.active, 1, "空出后正常结束当前回合");
+  assert.equal(knowledgeEventsFor(base, game, fizzle).length, 0, "空出不应生成目标知识迁移事件");
 });
 
 test("非二元玩家每次身份判断前都可支付 1 Joy 永久切换读取", () => {

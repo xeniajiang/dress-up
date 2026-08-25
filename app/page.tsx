@@ -354,7 +354,7 @@ function cardEffectCopy(name: string) {
     打烊: "弃置一张公共牌，然后补满公共牌列。",
     爱美之心: "获得一张公共牌并立即打出；不进入手牌。",
     迷茫: "目标支付 1 Joy 取消；否则弃一张呈现或跳过下回合。",
-    换一种活法: "与另一名玩家交换隐藏目标。",
+    换一种活法: "与另一名玩家交换隐藏目标。你也可以空出此牌，不交换目标。",
     detrans: "对自己使用。移除最上层长期身份标记，恢复为下方记录的长期身份。若恢复非二元，同时恢复该层记录的二元读取；不清除临时身份。【改好证了！】会阻止本牌。",
     真心话大冒险: "查看另一名玩家的目标；对方可支付 2 Joy 反制，改为查看你的目标。",
     试用代词: "随机获得男性、女性或非二元临时身份并 +1 Joy，持续至你的下回合结束；非二元沿用原有二元读取规则。",
@@ -607,6 +607,40 @@ function GameTable({ mode, names, onExit }: { mode: Mode; names: string[]; onExi
   const [inspectedHandPlayerId, setInspectedHandPlayerId] = useState<number | null>(null);
   const [movingPresent, setMovingPresent] = useState<BoardMoveSelection | null>(null);
   const [dragOverTargetId, setDragOverTargetId] = useState<number | null>(null);
+  const resultStageRef = useRef<HTMLDivElement>(null);
+  const [resultScale, setResultScale] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (game.phase !== "ended") {
+      setResultScale(null);
+      return;
+    }
+
+    const stage = resultStageRef.current;
+    const page = stage?.parentElement;
+    if (!stage || !page) return;
+
+    let frame = 0;
+    const fitToViewport = () => {
+      window.cancelAnimationFrame(frame);
+      frame = window.requestAnimationFrame(() => {
+        const paddingBottom = Number.parseFloat(window.getComputedStyle(page).paddingBottom) || 0;
+        const availableHeight = Math.max(1, page.clientHeight - stage.offsetTop - paddingBottom);
+        const nextScale = Math.min(1, availableHeight / Math.max(1, stage.scrollHeight));
+        setResultScale((current) => current !== null && Math.abs(current - nextScale) < 0.005 ? current : nextScale);
+      });
+    };
+
+    fitToViewport();
+    const observer = new ResizeObserver(fitToViewport);
+    observer.observe(stage);
+    window.addEventListener("resize", fitToViewport);
+    return () => {
+      window.cancelAnimationFrame(frame);
+      observer.disconnect();
+      window.removeEventListener("resize", fitToViewport);
+    };
+  }, [game.phase]);
 
   const decisionOwnerId = decisionPlayerId(game);
   const isHumanDecision = mode === "solo" && decisionOwnerId === 0;
@@ -900,7 +934,7 @@ function GameTable({ mode, names, onExit }: { mode: Mode; names: string[]; onExi
       <main className="result-page">
         <div className="result-logo" aria-label="dress-up!">dress-<em>up!</em></div>
         <div className="result-confetti" aria-hidden="true"><i /><i /><i /><i /><i /><i /><i /><i /></div>
-        <div className="result-stage">
+        <div className="result-stage" ref={resultStageRef} style={resultScale === null ? undefined : { transform: `scale(${resultScale})` }}>
           <header className="result-heading">
             <span className="result-crown" aria-hidden="true" />
             <h1><span>{winners.map((player) => player.name).join("、")}获胜</span><b>{winningScore}</b><i aria-hidden="true">✦</i></h1>

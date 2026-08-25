@@ -73,6 +73,10 @@ test("keeps local game modes, three card categories, and metadata in the applica
   assert.match(page, /onWheel=\{handleWheel\}/);
   assert.match(page, /onTouchStart=\{handleTouchStart\}/);
   assert.match(page, /onMouseEnter=\{handleMouseEnter\}/);
+  assert.match(page, /const nextScale = Math\.min\(1, availableHeight \/ Math\.max\(1, stage\.scrollHeight\)\)/);
+  assert.match(page, /new ResizeObserver\(fitToViewport\)/);
+  assert.match(page, /ref=\{resultStageRef\}/);
+  assert.match(styles, /\.result-stage\s*\{[^}]*display:\s*flow-root;[^}]*transform-origin:\s*top center;/);
   assert.match(page, /BINARY_EFFECT_CARDS = new Set\(\["美妆博主", "你pass吗？", "老男人看了你一眼", "职场 Dress Code"\]\)/);
   assert.match(page, /TERNARY_EFFECT_CARDS = new Set\(\["扑朔迷离", "先入为主"\]\)/);
   assert.doesNotMatch(page, /还好试了一下/);

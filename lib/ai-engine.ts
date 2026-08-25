@@ -474,7 +474,10 @@ function enumerateCardPlayActions(game: SimGame, actor: SimPlayer, card: SimCard
       others.filter((target) => canReadBlue(target) && canReachRequiredChecks(target))
         .forEach((target) => pushPlay(actions, card, ` → ${target.name}`, { targetId: target.id }));
     }
-  } else if (["迷茫", "换一种活法", "真心话大冒险", "学吉他"].includes(card.name)) {
+  } else if (card.name === "换一种活法") {
+    others.forEach((target) => pushPlay(actions, card, ` → ${target.name}`, { targetId: target.id }));
+    actions.push({ id: `play:${card.id}:fizzle`, type: "play", label: `空出【${card.name}】`, cardId: card.id });
+  } else if (["迷茫", "真心话大冒险", "学吉他"].includes(card.name)) {
     others.forEach((target) => pushPlay(actions, card, ` → ${target.name}`, { targetId: target.id }));
   } else if (card.name === "detrans") {
     const history = actor.identityHistory ?? [];

@@ -363,7 +363,7 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 2px s
   letter-spacing: -.055em;
 }
 .result-logo em { color: #e85d91; font-style: normal; }
-.result-stage { width: min(1470px, 100%); margin: 0 auto; transform-origin: top center; }
+.result-stage { width: min(1470px, 100%); margin: 0 auto; display: flow-root; transform-origin: top center; }
 .result-heading { position: relative; z-index: 1; margin: 92px auto 46px; text-align: center; }
 .result-heading h1 { display: flex; align-items: baseline; justify-content: center; gap: 26px; margin: 0; }
 .result-heading h1 span {
