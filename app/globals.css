@@ -3089,3 +3089,133 @@ button.table-card[aria-disabled="true"] { cursor: default; }
     max-width: 118px !important;
   }
 }
+
+@media (max-width: 760px) {
+  .player-core > .avatar-placeholder {
+    width: 32px !important;
+    height: 32px !important;
+    min-width: 32px !important;
+    max-width: 32px !important;
+    min-height: 32px !important;
+    max-height: 32px !important;
+
+    aspect-ratio: 1 / 1 !important;
+    align-self: start !important;
+    justify-self: start !important;
+    flex: none !important;
+  }
+
+  .player-name {
+    min-width: 0 !important;
+  }
+
+  .identity-history-stack {
+    min-width: 0;
+    max-width: 100%;
+  }
+}
+
+@media (max-width: 760px) {
+  .action-flip-back p {
+    margin: 3px 0 0 !important;
+    overflow-wrap: anywhere;
+  }
+}
+
+/* 移动端：长牌效整体压缩版式 */
+@media (max-width: 1100px) {
+  .action-flip-back:has(.effect-copy-long) {
+    padding: 5px !important;
+    gap: 3px !important;
+  }
+
+  .action-flip-back:has(.effect-copy-long) small {
+    font-size: 6px !important;
+    line-height: 1 !important;
+  }
+
+  .action-flip-back:has(.effect-copy-long) h3 {
+    font-size: 8px !important;
+    line-height: 1.05 !important;
+  }
+
+  .action-flip-back p.effect-copy-long {
+    margin: 0 !important;
+    font-size: 6.4px !important;
+    line-height: 1.12 !important;
+    overflow-wrap: anywhere !important;
+  }
+
+
+  /* 心动夸夸这种特别长的牌效 */
+  .action-flip-back:has(.effect-copy-very-long) {
+    padding: 4px !important;
+    gap: 2px !important;
+  }
+
+  .action-flip-back:has(.effect-copy-very-long) small {
+    font-size: 5px !important;
+    line-height: 1 !important;
+  }
+
+  .action-flip-back:has(.effect-copy-very-long) h3 {
+    font-size: 7px !important;
+    line-height: 1 !important;
+  }
+
+  .action-flip-back p.effect-copy-very-long {
+    margin: 0 !important;
+    font-size: 5.2px !important;
+    line-height: 1.08 !important;
+    overflow-wrap: anywhere !important;
+  }
+}
+
+/* 移动端：长牌效适度缩放，优先保证可读性 */
+@media (max-width: 1100px) {
+  /* 中长牌效 */
+  .action-flip-back:has(.effect-copy-long) {
+    padding: 6px !important;
+    gap: 4px !important;
+  }
+
+  .action-flip-back:has(.effect-copy-long) small {
+    font-size: 6px !important;
+    line-height: 1.15 !important;
+  }
+
+  .action-flip-back:has(.effect-copy-long) h3 {
+    font-size: 8px !important;
+    line-height: 1.15 !important;
+  }
+
+  .action-flip-back p.effect-copy-long {
+    margin: 0 !important;
+    font-size: 6.8px !important;
+    line-height: 1.28 !important;
+    overflow-wrap: anywhere !important;
+  }
+
+  /* 特别长的牌效 */
+  .action-flip-back:has(.effect-copy-very-long) {
+    padding: 5px !important;
+    gap: 3px !important;
+  }
+
+  .action-flip-back:has(.effect-copy-very-long) small {
+    font-size: 5.8px !important;
+    line-height: 1.15 !important;
+  }
+
+  .action-flip-back:has(.effect-copy-very-long) h3 {
+    font-size: 7.5px !important;
+    line-height: 1.12 !important;
+  }
+
+  .action-flip-back p.effect-copy-very-long {
+    margin: 0 !important;
+    font-size: 6px !important;
+    line-height: 1.24 !important;
+    overflow-wrap: anywhere !important;
+  }
+}

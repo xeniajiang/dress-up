@@ -519,7 +519,17 @@ function CardFace({ card }: { card: SimCard }) {
             <>
               <small>牌效</small>
               <h3>{card.name}</h3>
-              <p>{cardEffectCopy(card.name)}</p>
+              {(() => {
+                const effectCopy = cardEffectCopy(card.name);
+                const lengthClass =
+                  effectCopy.length >= 70
+                    ? "effect-copy-very-long"
+                    : effectCopy.length >= 45
+                      ? "effect-copy-long"
+                      : "";
+
+                return <p className={lengthClass}>{effectCopy}</p>;
+              })()}
             </>
           )}
         </div>
