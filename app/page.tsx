@@ -521,11 +521,13 @@ function CardFace({ card }: { card: SimCard }) {
               {(() => {
                 const effectCopy = cardEffectCopy(card.name);
                 const lengthClass =
-                  effectCopy.length >= 70
-                    ? "effect-copy-very-long"
-                    : effectCopy.length >= 45
-                      ? "effect-copy-long"
-                      : "";
+                  card.name === "伪娘团"
+                    ? "effect-copy-femboy-group"
+                    : effectCopy.length >= 70
+                      ? "effect-copy-very-long"
+                      : effectCopy.length >= 45
+                        ? "effect-copy-long"
+                        : "";
 
                 return <p className={lengthClass}>{effectCopy}</p>;
               })()}

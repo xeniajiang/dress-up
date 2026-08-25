@@ -3090,6 +3090,35 @@ button.table-card[aria-disabled="true"] { cursor: default; }
   }
 }
 
+/* 伪娘团：桌面端长牌效适配 */
+@media (min-width: 1101px) {
+  .action-flip-back:has(.effect-copy-femboy-group) {
+    padding: 7px !important;
+    gap: 5px !important;
+  }
+
+  .action-flip-back:has(.effect-copy-femboy-group) h3 {
+    font-size: 11px !important;
+    line-height: 1.15 !important;
+  }
+
+  .action-flip-back p.effect-copy-femboy-group {
+    margin: 0 !important;
+    font-size: 9px !important;
+    line-height: 1.28 !important;
+    overflow-wrap: anywhere !important;
+  }
+}
+
+/* 手机上继续按更紧凑的长牌处理 */
+@media (max-width: 1100px) {
+  .action-flip-back p.effect-copy-femboy-group {
+    margin: 0 !important;
+    font-size: 6px !important;
+    line-height: 1.24 !important;
+  }
+}
+
 @media (max-width: 760px) {
   .player-core > .avatar-placeholder {
     width: 32px !important;
