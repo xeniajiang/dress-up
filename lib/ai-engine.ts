@@ -56,6 +56,7 @@ export type SimPlayer = {
 };
 
 export type SimGame = {
+  sessionMode: "spectate" | "solo";
   rules?: { shopOwnerCap: number; shopOwnerScoring: ShopOwnerScoring };
   players: SimPlayer[];
   deck: SimCard[];
@@ -123,9 +124,11 @@ export type SimGame = {
 
 export type SimAction = {
   id: string;
-  type: "draw-blind" | "draw-market" | "skip-draw" | "play" | "certificate-claim" | "certificate-pass" | "truth-allow" | "truth-resist" | "confusion-pay" | "confusion-discard" | "confusion-skip" | "beauty-blogger-play" | "beauty-blogger-pass" | "fitting-room-select" | "fitting-room-allocate" | "fitting-room-fizzle" | "shared-wardrobe-select" | "shared-wardrobe-pass" | "shared-wardrobe-transfer" | "shared-wardrobe-lose-joy" | "reading-keep" | "reading-switch" | "check-count-select" | "dress-code-preserve" | "dress-code-discard-all" | "venue-convert" | "venue-exchange-discard" | "venue-manzhan-mode" | "venue-manzhan-use" | "venue-manzhan-pass" | "venue-manzhan-move";
+  type: "draw-blind" | "draw-market" | "skip-draw" | "play" | "certificate-claim" | "certificate-pass" | "truth-allow" | "truth-resist" | "confusion-pay" | "confusion-discard" | "confusion-skip" | "beauty-blogger-play" | "beauty-blogger-pass" | "fitting-room-select" | "fitting-room-solo-play" | "fitting-room-allocate" | "fitting-room-fizzle" | "shared-wardrobe-select" | "shared-wardrobe-pass" | "shared-wardrobe-transfer" | "shared-wardrobe-lose-joy" | "reading-keep" | "reading-switch" | "check-count-select" | "dress-code-preserve" | "dress-code-discard-all" | "venue-convert" | "venue-exchange-discard" | "venue-manzhan-mode" | "venue-manzhan-use" | "venue-manzhan-pass" | "venue-manzhan-move";
   label: string;
   cardId?: string;
+  /** 明确表示牌效被空出；不要依赖 action id 的文字后缀判断。 */
+  fizzle?: boolean;
   targetId?: number;
   sourcePlayerId?: number;
   destinationPlayerId?: number;
@@ -223,7 +226,7 @@ function makeDeck(random = Math.random) {
   return shuffle(CARD_SPECS.flatMap((spec) => Array.from({ length: spec.count }, (_, index) => ({ ...spec, id: `${spec.name}-${index}-${random().toString(36).slice(2, 8)}` }))), random);
 }
 
-export function createSimGame(names: string[], random = Math.random, ruleOverrides: SimRuleOverrides = {}): SimGame {
+export function createSimGame(names: string[], random = Math.random, ruleOverrides: SimRuleOverrides = {}, sessionMode: "spectate" | "solo" = "spectate"): SimGame {
   const deck = makeDeck(random);
   const goals = shuffle(GOALS, random);
   const players = names.map((name, id): SimPlayer => ({
@@ -233,13 +236,14 @@ export function createSimGame(names: string[], random = Math.random, ruleOverrid
   }));
   const active = Math.floor(random() * 4);
   return {
+    sessionMode,
     rules: {
       shopOwnerCap: ruleOverrides.shopOwnerCap ?? 3,
       shopOwnerScoring: ruleOverrides.shopOwnerScoring ?? "three-four-tier-2-4",
     },
     players, deck, market: [deck.shift()!, deck.shift()!, deck.shift()!], discard: [], active, phase: "draw", round: 1,
     venue: null, dei: false, locks: {}, finishing: false, turnSerial: 0,
-    events: [`${players[active].name} 随机先手。`, "AI 观战局开始。"], warnings: [], certificateOffer: null, truthOffer: null, confusionOffer: null, beautyOffer: null, fittingRoomOffer: null, sharedWardrobeOffer: null, forcedPlay: null, venueExchange: null, manzhanOpeningChoice: null, manzhanPinkPrompt: null, readingPrompt: null, checkCountPrompt: null, dressCodeOffer: null,
+    events: [`${players[active].name} 随机先手。`, sessionMode === "solo" ? "1 人 + 3 AI 对局开始。" : "AI 观战局开始。"], warnings: [], certificateOffer: null, truthOffer: null, confusionOffer: null, beautyOffer: null, fittingRoomOffer: null, sharedWardrobeOffer: null, forcedPlay: null, venueExchange: null, manzhanOpeningChoice: null, manzhanPinkPrompt: null, readingPrompt: null, checkCountPrompt: null, dressCodeOffer: null,
   };
 }
 
@@ -487,7 +491,7 @@ function enumerateCardPlayActions(game: SimGame, actor: SimPlayer, card: SimCard
     }
   } else if (card.name === "换一种活法") {
     others.forEach((target) => pushPlay(actions, card, ` → ${target.name}`, { targetId: target.id }));
-    actions.push({ id: `play:${card.id}:fizzle`, type: "play", label: `空出【${card.name}】`, cardId: card.id });
+    actions.push({ id: `play:${card.id}:fizzle`, type: "play", label: `空出【${card.name}】`, cardId: card.id, fizzle: true });
   } else if (["迷茫", "真心话大冒险", "学吉他"].includes(card.name)) {
     others.forEach((target) => pushPlay(actions, card, ` → ${target.name}`, { targetId: target.id }));
   } else if (card.name === "detrans") {
@@ -799,10 +803,20 @@ export function enumerateLegalActions(game: SimGame): SimAction[] {
           });
         }
       }
+      if (candidates.length === 1) {
+        actions.push({
+          id: `fitting-room:solo:${offer.actorId}:${candidates[0].id}`,
+          type: "fitting-room-solo-play",
+          label: `立即对自己打出【${candidates[0].name}】`,
+          presentId: candidates[0].id,
+          targetId: offer.actorId,
+        });
+      }
       return [...actions, {
         id: `fitting-room:fizzle:${offer.actorId}:${offer.targetId}`,
         type: "fitting-room-fizzle",
         label: "没买到衣服",
+        fizzle: true,
       }];
     }
     return offer.selected.map((card) => {
@@ -831,7 +845,7 @@ export function enumerateLegalActions(game: SimGame): SimAction[] {
     const actor = game.players[forced.playerId];
     const actions = enumerateCardPlayActions(game, actor, forced.card);
     if (actions.length) return actions;
-    return [{ id: `play:${forced.card.id}:forced-fizzle`, type: "play", label: `空出【${forced.card.name}】（无合理目标）`, cardId: forced.card.id }];
+    return [{ id: `play:${forced.card.id}:forced-fizzle`, type: "play", label: `空出【${forced.card.name}】（无合理目标）`, cardId: forced.card.id, fizzle: true }];
   }
   const actor = game.players[game.active];
   if (game.manzhanPinkPrompt?.playerId === actor.id) return enumerateManzhanPinkMoves(game, actor);
@@ -871,7 +885,7 @@ export function enumerateLegalActions(game: SimGame): SimAction[] {
   return actor.hand.flatMap((card) => {
     const actions = enumerateCardPlayActions(game, actor, card);
     if (actions.length) return actions;
-    return [{ id: `play:${card.id}:fizzle`, type: "play" as const, label: `空出【${card.name}】（无合理目标）`, cardId: card.id }];
+    return [{ id: `play:${card.id}:fizzle`, type: "play" as const, label: `空出【${card.name}】（无合理目标）`, cardId: card.id, fizzle: true }];
   });
 }
 
@@ -881,6 +895,13 @@ function clone(game: SimGame): SimGame {
 
 function event(game: SimGame, text: string) {
   game.events = [text, ...game.events];
+}
+
+function gainJoy(game: SimGame, player: SimPlayer, amount: number, sourceName: string, log = true) {
+  if (amount <= 0) return 0;
+  player.joy += amount;
+  if (log) event(game, `${player.name} 因【${sourceName}】获得 ${amount} Joy。`);
+  return amount;
 }
 
 function recordScoreSource(player: SimPlayer, cardName: string, joy: number) {
@@ -893,7 +914,7 @@ function recordScoreSource(player: SimPlayer, cardName: string, joy: number) {
 
 function grantCrushJoy(game: SimGame, actor: SimPlayer, targetId: number, cardName: string) {
   if (!actor.crushTargetIds.includes(targetId)) return false;
-  actor.joy += 1;
+  gainJoy(game, actor, 1, "心动标记", false);
   recordScoreSource(actor, "心动标记", 1);
   event(game, `${actor.name} 对拥有其心动标记的 ${game.players[targetId].name} 使用了【${cardName}】，获得 1 Joy。`);
   return true;
@@ -1033,23 +1054,25 @@ function applyPronounTarget(game: SimGame, target: SimPlayer, card: SimCard, act
       ? false
       : idealIdentity(target.goal, "nonbinary") && !idealIdentity(target.goal, intended) && target.joy > (target.goal === "enby" ? 0 : 1);
   if (nonbinaryBetter) {
-    loseJoy(target);
+    loseJoy(game, target, 1, card.name);
     pushLongTermIdentity(game, target, "nonbinary", intended as SimSide);
   } else pushLongTermIdentity(game, target, intended, intended as SimSide);
 }
 
-function loseJoy(player: SimPlayer, amount = 1) {
+function loseJoy(game: SimGame, player: SimPlayer, amount = 1, sourceName = "牌效", log = true) {
   const loss = Math.min(player.joy, amount);
-  if (loss <= 0) return;
+  if (loss <= 0) return 0;
   player.joy -= loss;
   player.lastJoyLoss = loss;
   player.joyLossVersion += 1;
+  if (log) event(game, `${player.name} 因【${sourceName}】失去 ${loss} Joy。`);
+  return loss;
 }
 
 function triggerJiraiRetaliation(game: SimGame, actor: SimPlayer, target: SimPlayer, cardName: string) {
   if (actor.id === target.id || !target.items.includes("地雷系")) return false;
   const joyBefore = actor.joy;
-  loseJoy(actor);
+  loseJoy(game, actor, 1, "地雷系", false);
   const lost = joyBefore - actor.joy;
   event(game, lost > 0
     ? `${target.name} 的【地雷系】因 ${actor.name} 对其使用【${cardName}】而触发；${actor.name} 失去 1 Joy。`
@@ -1074,7 +1097,7 @@ function gainPresent(game: SimGame, card: SimCard, targetId: number) {
   }
   card.freshUntilTurnSerial = game.turnSerial + game.players.length;
   target.presents.push(card);
-  if (game.venue?.card.name === "全女空间！" && simSide(target) === "female" && simCardChecked(card)) target.joy += 1;
+  if (game.venue?.card.name === "全女空间！" && simSide(target) === "female" && simCardChecked(card)) gainJoy(game, target, 1, "全女空间！");
 }
 
 function transferPresent(game: SimGame, source: SimPlayer, target: SimPlayer, card: SimCard) {
@@ -1124,9 +1147,9 @@ function resolvePlay(game: SimGame, action: SimAction, card: SimCard) {
       return;
     }
     if (!actor.crushTargetIds.includes(target.id)) actor.crushTargetIds.push(target.id);
-    actor.joy += 1;
+    gainJoy(game, actor, 1, "心动夸夸", false);
     recordScoreSource(actor, card.name, 1);
-    target.joy += 1;
+    gainJoy(game, target, 1, "心动夸夸", false);
     recordScoreSource(target, card.name, 1);
     event(game, `${actor.name} 与 ${target.name} 各获得 1 Joy；${target.name} 获得一枚来自 ${actor.name} 的心动标记。`);
   } else if (card.name === "封心锁爱") {
@@ -1138,7 +1161,7 @@ function resolvePlay(game: SimGame, action: SimAction, card: SimCard) {
       givers.forEach((giver) => {
         giver.crushTargetIds = giver.crushTargetIds.filter((targetId) => targetId !== actor.id);
         const joyBefore = giver.joy;
-        loseJoy(giver, 1);
+        loseJoy(game, giver, 1, "封心锁爱", false);
         event(game, `${actor.name} 弃置了来自 ${giver.name} 的心动标记；${giver.name} 失去 ${joyBefore - giver.joy} Joy。`);
       });
     }
@@ -1157,7 +1180,7 @@ function resolvePlay(game: SimGame, action: SimAction, card: SimCard) {
       });
       giver.crushTargetIds = retained;
     });
-    affectedPlayerIds.forEach((playerId) => loseJoy(game.players[playerId]));
+    affectedPlayerIds.forEach((playerId) => loseJoy(game, game.players[playerId], 1, "不支持不反对", false));
     event(game, `${actor.name} 打出【不支持不反对】，移除了 ${removed} 枚未连接一名男性与一名女性的心动标记；关系双方共 ${affectedPlayerIds.size} 名玩家各失去 1 Joy（每人至多 1 Joy）。`);
   } else if (card.name === "地雷系") {
     actor.items.push("地雷系");
@@ -1188,7 +1211,7 @@ function resolvePlay(game: SimGame, action: SimAction, card: SimCard) {
     event(game, `${target.name} 正在决定是否支付 2 Joy 反制【真心话大冒险】。`);
   } else if (card.name === "美妆博主") {
     const resolvedSide = action.requiredReading ?? simSide(actor);
-    if (resolvedSide === "male") actor.joy += 2;
+    if (resolvedSide === "male") gainJoy(game, actor, 2, "美妆博主");
     else {
       const revealed = game.deck.splice(0, Math.min(3, game.deck.length));
       game.beautyOffer = { playerId: actor.id, revealed };
@@ -1206,27 +1229,27 @@ function resolvePlay(game: SimGame, action: SimAction, card: SimCard) {
     const identities: SimIdentity[] = ["male", "female", "nonbinary"];
     actor.tempIdentity = identities[Math.floor(Math.random() * identities.length)];
     actor.tempIdentityExpiresAfterTurn = actor.turns + 2;
-    actor.joy += 1;
+    gainJoy(game, actor, 1, "试用代词", false);
     const readingNote = actor.tempIdentity === "nonbinary" ? `，二元读取保持为${actor.reading === "male" ? "蓝" : "粉"}` : "";
     event(game, `${actor.name} 暂时成为${actor.tempIdentity === "male" ? "男性" : actor.tempIdentity === "female" ? "女性" : "非二元"}${readingNote}，并获得 1 Joy。`);
   } else if (card.name === "程序员") {
     if (actor.presents.some((held) => held.name === "皱巴巴的格子衬衫")) {
-      actor.joy += 2;
+      gainJoy(game, actor, 2, "程序员");
       recordScoreSource(actor, card.name, 2);
     }
   } else if (card.name === "变装皇后") {
     if (actor.presents.some((held) => held.name === "一支商标模糊的口红") && actor.presents.some((held) => held.name === "美甲")) {
-      actor.joy += 2;
+      gainJoy(game, actor, 2, "变装皇后");
       recordScoreSource(actor, card.name, 2);
     }
   } else if (card.name === "女装店老板") {
     const clothingKinds = new Set(game.players.flatMap((player) => player.presents.filter(simCardIsClothing).map((held) => held.name)));
     const gainedJoy = simShopOwnerJoy(clothingKinds.size, game.rules);
-    actor.joy += gainedJoy;
+    gainJoy(game, actor, gainedJoy, "女装店老板");
     recordScoreSource(actor, card.name, gainedJoy);
   } else if (card.name === "空间主理人") {
     const gainedJoy = game.players.filter((player) => resolvedCheckCount(action, player) >= 2).length;
-    actor.joy += gainedJoy;
+    gainJoy(game, actor, gainedJoy, "空间主理人");
     recordScoreSource(actor, card.name, gainedJoy);
   } else if (card.name === "伪娘团" && target) {
     const actorSide = simSide(actor);
@@ -1234,8 +1257,8 @@ function resolvePlay(game: SimGame, action: SimAction, card: SimCard) {
     const actorChecks = resolvedCheckCount(action, actor);
     const targetChecks = resolvedCheckCount(action, target);
     if (actorSide === "male" && targetSide === "male" && actorChecks >= 2 && targetChecks >= 2) {
-      actor.joy += 2;
-      target.joy += 2;
+      gainJoy(game, actor, 2, "伪娘团", false);
+      gainJoy(game, target, 2, "伪娘团", false);
       recordScoreSource(actor, card.name, 2);
       recordScoreSource(target, card.name, 2);
       event(game, `${actor.name} 与 ${target.name} 连接【伪娘团】，双方均为蓝读取且检定数至少为 2，各获得 2 Joy。`);
@@ -1255,18 +1278,18 @@ function resolvePlay(game: SimGame, action: SimAction, card: SimCard) {
     target.tempIdentityExpiresAfterTurn = null;
     event(game, `${actor.name} 对 ${target.name} 使用【身份肯定】；其长期公开身份固定为${affirmed === "male" ? "男性" : affirmed === "female" ? "女性" : `非二元（${target.reading === "male" ? "蓝" : "粉"}读取）`}，临时状态结束。`);
   } else if (card.name === "开个小证") { actor.items.push("小证"); actor.certificateReady = true; }
-  else if (card.name === "学吉他" && target) { actor.joy += 1; target.joy += 1; actor.items.push("吉他"); }
-  else if (card.name === "自由职业者") { actor.joy += 1; actor.items.push("自由职业者"); }
-  else if (card.name === "改好证了！") { actor.joy += 1; actor.items.push("改好证了！"); }
+  else if (card.name === "学吉他" && target) { gainJoy(game, actor, 1, "学吉他"); gainJoy(game, target, 1, "学吉他"); actor.items.push("吉他"); }
+  else if (card.name === "自由职业者") { gainJoy(game, actor, 1, "自由职业者"); actor.items.push("自由职业者"); }
+  else if (card.name === "改好证了！") { gainJoy(game, actor, 1, "改好证了！"); actor.items.push("改好证了！"); }
   else if (card.name === "老男人看了你一眼" && target) {
     const count = resolvedCheckCount(action, target); const side = simSide(target);
-    if (side === "male" && count >= 1 && count <= 2) loseJoy(target);
+    if (side === "male" && count >= 1 && count <= 2) loseJoy(game, target, 1, card.name);
     if (side === "male" && count >= 3) applyTemporaryIdentity(game, actor, target, "female", card.name);
-    if (side === "female" && count >= 3) loseJoy(target);
+    if (side === "female" && count >= 3) loseJoy(game, target, 1, card.name);
   } else if (card.name === "厌女症") {
     const counts = game.players.map((player) => resolvedCheckCount(action, player));
     const max = Math.max(...counts);
-    if (max > 0) game.players.forEach((player) => { if (counts[player.id] === max) loseJoy(player); });
+    if (max > 0) game.players.forEach((player) => { if (counts[player.id] === max) loseJoy(game, player, 1, card.name); });
   } else if (card.name === "职场 Dress Code") {
     if (!game.dei) {
       const preserveChoices: number[] = [];
@@ -1275,11 +1298,11 @@ function resolvePlay(game: SimGame, action: SimAction, card: SimCard) {
         const checkedPresents = player.presents.filter(simCardChecked);
         if (player.ambiguityCard?.name === "扑朔迷离" && checkedPresents.length > 0) preserveChoices.push(player.id);
         else checkedPresents.forEach((held) => removePresent(game, player, held));
-      } else if (resolvedCheckCount(action, player) < 2) loseJoy(player);
+      } else if (resolvedCheckCount(action, player) < 2) loseJoy(game, player, 1, card.name);
       });
       if (preserveChoices.length > 0) game.dressCodeOffer = { actorId: actor.id, playerIds: preserveChoices, index: 0 };
     }
-  } else if (card.name === "职场 DEI") { game.players.filter((player) => !player.items.includes("自由职业者")).forEach((player) => { player.joy += 1; }); game.dei = true; }
+  } else if (card.name === "职场 DEI") { game.players.filter((player) => !player.items.includes("自由职业者")).forEach((player) => { gainJoy(game, player, 1, card.name); }); game.dei = true; }
   else if (card.kind === "venue") {
     if (game.venue) game.discard.push(game.venue.card);
     game.venue = {
@@ -1346,7 +1369,7 @@ function advanceTurn(game: SimGame) {
   expireVenueAtEndOfTurn(game, leaving);
   advanceVisualClock(game);
   const equal = game.players.every((player) => player.turns === game.players[0].turns);
-  if (game.finishing && equal) { game.phase = "ended"; event(game, "完成当前轮：AI 观战局结束。 "); return; }
+  if (game.finishing && equal) { game.phase = "ended"; event(game, game.sessionMode === "solo" ? "完成当前轮：1 人 + 3 AI 对局结束。" : "完成当前轮：AI 观战局结束。"); return; }
   let nextId = (game.active + 1) % game.players.length;
   if (nextId === 0) game.round += 1;
   let guard = 0;
@@ -1419,7 +1442,7 @@ export function applyLegalAction(current: SimGame, action: SimAction): SimGame {
     const check = prompt.checks[prompt.index];
     const player = game.players[check.playerId];
     if (action.type === "reading-switch") {
-      loseJoy(player);
+      loseJoy(game, player, 1, check.sourceName, false);
       player.reading = player.reading === "male" ? "female" : "male";
       if (player.identity === "nonbinary") syncCurrentIdentityLayer(player);
       event(game, `${player.name} 支付 1 Joy，将非二元读取永久切为${player.reading === "male" ? "蓝" : "粉"}，再结算【${check.sourceName}】。`);
@@ -1487,7 +1510,7 @@ export function applyLegalAction(current: SimGame, action: SimAction): SimGame {
     } else if (action.type === "shared-wardrobe-lose-joy") {
       const selectedName = actor.presents.find((present) => present.id === action.presentId)?.name ?? "该呈现";
       const joyBefore = actor.joy;
-      loseJoy(actor, 2);
+      loseJoy(game, actor, 2, "共享衣橱", false);
       event(game, `${actor.name} 拒绝移交【${selectedName}】，失去 ${joyBefore - actor.joy} Joy。`);
     }
     if (!startFulingtaExchange(game, actor, { ...action, targetId: target.id })) advanceTurn(game);
@@ -1539,7 +1562,7 @@ export function applyLegalAction(current: SimGame, action: SimAction): SimGame {
     const resumeAfter = offer.resumeAfter;
     game.truthOffer = null;
     if (action.type === "truth-resist") {
-      loseJoy(target, 2);
+      loseJoy(game, target, 2, "真心话大冒险", false);
       event(game, `${target.name} 支付 2 Joy 反制；${actor.name} 未能查看目标，改为 ${target.name} 查看 ${actor.name} 的目标。`);
     } else {
       event(game, `${target.name} 不反制；${actor.name} 查看了 ${target.name} 的目标。`);
@@ -1554,7 +1577,7 @@ export function applyLegalAction(current: SimGame, action: SimAction): SimGame {
     const resumeAfter = offer.resumeAfter;
     game.confusionOffer = null;
     if (action.type === "confusion-pay") {
-      loseJoy(target);
+      loseJoy(game, target, 1, "迷茫", false);
       event(game, `${target.name} 支付 1 Joy，取消【迷茫】的其余影响。`);
     } else if (action.type === "confusion-discard") {
       const present = target.presents.find((held) => held.id === action.presentId)!;
@@ -1596,6 +1619,28 @@ export function applyLegalAction(current: SimGame, action: SimAction): SimGame {
     game.fittingRoomOffer = null;
     event(game, `${actor.name} 的【闺蜜试衣间】没买到衣服；牌效空出。`);
     if (!startFulingtaExchange(game, actor, { ...action, targetId: offer.targetId })) advanceTurn(game);
+    return game;
+  }
+  if (action.type === "fitting-room-solo-play") {
+    const offer = game.fittingRoomOffer!;
+    const actor = game.players[offer.actorId];
+    const marketCard = takeMarketWithoutRefill(game, action.presentId!);
+    const revealedCard = offer.revealed.find((card) => card.id === action.presentId);
+    const selected = marketCard ?? revealedCard;
+    game.deck = [...offer.revealed.filter((card) => card.id !== action.presentId), ...game.deck];
+    game.fittingRoomOffer = null;
+    if (selected?.kind === "present") {
+      gainPresent(game, selected, actor.id);
+      event(game, `${actor.name} 的【闺蜜试衣间】只找到【${selected.name}】，立即对自己打出；衣物覆盖正常结算。`);
+    }
+    refill(game);
+    if (game.certificateOffer) {
+      game.certificateOffer.resumeAfter = "fitting-room-fulingta";
+      game.certificateOffer.resumeActorId = actor.id;
+      game.certificateOffer.resumeTargetId = offer.targetId;
+    } else if (!startFulingtaExchange(game, actor, { ...action, targetId: actor.id })) {
+      advanceTurn(game);
+    }
     return game;
   }
   if (action.type === "fitting-room-select") {
@@ -1696,8 +1741,8 @@ export function applyLegalAction(current: SimGame, action: SimAction): SimGame {
     moved.checkAnimationVersion = (moved.checkAnimationVersion ?? 0) + 1;
     gainPresent(game, moved, target.id);
     if ((actor.tempIdentity ?? actor.identity) === "nonbinary") recordFirstWhiteEffect(game, actor, "漫展");
-    actor.joy += 1;
-    source.joy += 1;
+    gainJoy(game, actor, 1, "漫展", false);
+    gainJoy(game, source, 1, "漫展", false);
     game.venue!.manzhanPinkHandledTurns ??= {};
     game.venue!.manzhanPinkHandledTurns[actor.id] = actor.turns;
     game.manzhanPinkPrompt = null;
@@ -1734,7 +1779,7 @@ export function applyLegalAction(current: SimGame, action: SimAction): SimGame {
 
   const forcedCard = game.forcedPlay?.card.id === action.cardId ? game.forcedPlay.card : null;
   const card = forcedCard ?? actor.hand.find((held) => held.id === action.cardId)!;
-  const fizzled = action.id.endsWith(":fizzle") || action.id.endsWith(":forced-fizzle");
+  const fizzled = action.fizzle === true;
   const grantsExtraAction = !fizzled && card.name === "翻箱倒柜";
   const grantsManzhanBluePlay = !fizzled
     && card.kind === "present"

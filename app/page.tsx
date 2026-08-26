@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState, type DragEvent, type MouseEvent, type ReactNode, type TouchEvent, type WheelEvent } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type DragEvent, type MouseEvent, type ReactNode, type TouchEvent, type WheelEvent } from "react";
 import {
   applyLegalAction,
   compareFinalStanding,
@@ -42,6 +42,38 @@ type PlayedCardTransition = {
 };
 type FittingRoomNotice = { actorId: number; version: number };
 type BoardMoveSelection = { presentId: string; sourcePlayerId: number };
+type RuleView = "quick" | "full";
+type TutorialTipId = "draw" | "play" | "present" | "clothing" | "action" | "venue" | "split" | "ternary" | "nonbinary" | "temporary" | "reading" | "identity-affirmation" | "crush" | "scoring" | "life-change" | "workplace-dress-code" | "workplace-dei" | "freelancer" | "fizzle" | "response" | "endgame";
+
+const TUTORIAL_VERSION = "v6";
+const TUTORIAL_INTRO_KEY = `dress-up:tutorial:${TUTORIAL_VERSION}:intro-seen`;
+const TUTORIAL_TIPS_KEY = `dress-up:tutorial:${TUTORIAL_VERSION}:tips-seen`;
+
+const TUTORIAL_TIPS: Record<TutorialTipId, { title: string; copy: string }> = {
+  draw: { title: "轮到你拿牌", copy: "可以暗摸，也可以从中间三张公共牌里选择一张。你可以先查看手牌，再决定拿什么。" },
+  play: { title: "现在打 1 张牌", copy: "点击一张手牌。若需要目标，场上会显示可以选择的位置。" },
+  present: { title: "呈现会留在目标面前", copy: "带 ✦ 的呈现会增加检定数。" },
+  clothing: { title: "服装会互相覆盖", copy: "每人只能保留一件服装；新服装会覆盖原有服装。" },
+  action: { title: "行动牌会立即结算", copy: "结算后通常进入弃牌堆；写有“留在你面前”的行动会持续生效。" },
+  venue: { title: "场上同时只有一个场地", copy: "新场地会替换旧场地，并持续至打出者的下回合结束。" },
+  split: { title: "这张牌按当前读取结算", copy: "蓝读取使用蓝栏，粉读取使用粉栏。" },
+  ternary: { title: "蓝、白、粉三切牌", copy: "男性使用蓝栏，女性使用粉栏，非二元使用白栏。" },
+  nonbinary: { title: "非二元仍保留读取方向", copy: "二切牌按蓝／粉读取结算；三切牌使用白栏。" },
+  temporary: { title: "◷ 表示临时身份", copy: "临时身份参与牌效判断，持续至该玩家的下回合结束；长期身份仍然保留。" },
+  reading: { title: "身份判断前可以改变读取", copy: "你可以支付 1 Joy，永久切换蓝／粉读取，再结算本次效果。" },
+  "identity-affirmation": { title: "可以固定临时身份", copy: "【身份肯定】可对任意处于临时身份的玩家使用，将其当前临时身份固定为长期身份，并移除 ◷。" },
+  crush: { title: "心动标记会持续产生 Joy", copy: "【心动夸夸】让双方立即各获得 1 Joy。此后，发起者每次对标记持有者使用牌，再获得 1 Joy。" },
+  scoring: { title: "Joy 就是终局分数", copy: "主要跑分牌会按条件获得较多 Joy；给予别人的 Joy 也会成为其分数。" },
+  "life-change": { title: "秘密目标可以交换", copy: "【换一种活法】交换你与另一名玩家的隐藏目标；身份、呈现和 Joy 不交换，终局改按新目标计分。也可以空出此牌。" },
+  "workplace-dress-code": { title: "Dress Code 会检查全场", copy: "它按每名玩家的当前读取结算。拥有【自由职业者】的玩家不受影响；若【职场 DEI】已经生效，本牌完全无效。" },
+  "workplace-dei": { title: "DEI 会改变之后的职场规则", copy: "所有未受职场效果豁免的玩家获得 1 Joy，并使本局之后的【职场 Dress Code】无效。自由职业者也不会获得这 1 Joy。" },
+  freelancer: { title: "自由职业者退出职场结算", copy: "你立即获得 1 Joy，并将此牌留在面前。此后不受 Dress Code 的惩罚，也不会获得职场 DEI 的 Joy。" },
+  fizzle: { title: "没有合适目标？", copy: "这张牌可以空出，不执行效果。" },
+  response: { title: "响应选择", copy: "你可以先收起窗口查看场上局势，再作决定。" },
+  endgame: { title: "终局将近", copy: "暗牌库和明牌库完全耗尽时，由最后一名玩家完成出牌，然后游戏结束。" },
+};
+
+const TUTORIAL_SCORING_CARDS = new Set(["美妆博主", "程序员", "变装皇后", "女装店老板", "空间主理人", "伪娘团"]);
 
 const DEFAULT_AI_NAMES = ["欣娅", "花雨", "晓山", "姬姐"];
 const DEFAULT_SOLO_NAMES = ["欣娅", "花雨", "晓山", "姬姐"];
@@ -198,6 +230,13 @@ function cardGlyph(name: string) {
   return "✦";
 }
 
+function persistentItemHelp(name: string) {
+  if (name === "地雷系") return "每当另一名玩家对你使用一张牌时，其失去 1 Joy。";
+  if (name === "封心锁爱") return "你不能成为【心动夸夸】的目标。打出时会移除已有心动标记，并使对应发起者各失去 1 Joy。";
+  if (name === "自由职业者") return "你不受【职场 Dress Code】和【职场 DEI】影响。";
+  return undefined;
+}
+
 function goalCriteria(player: SimPlayer) {
   const checks = simChecks(player);
   const feminine = player.presents.some((card) => card.dress || card.name === "一支商标模糊的口红");
@@ -348,7 +387,7 @@ function cardEffectCopy(name: string) {
     理发: "弃置一名玩家的【长发】。",
     卸甲: "弃置一名玩家的【美甲】。",
     共享衣橱: "选择一名其他玩家，将其呈现区内一张呈现牌移至你的呈现区。然后，其可以选择你呈现区内另一张呈现牌。你选择：将该牌移至其呈现区；或失去 2 Joy。",
-    闺蜜试衣间: "查看公共牌列与牌堆顶 3 张，从中选择 2 张呈现及另一名玩家；也可以直接选择【没买到衣服】。对方分给双方各 1 张并立即打出；未选顶牌按原顺序放回牌堆顶。",
+    闺蜜试衣间: "查看公共牌列与牌堆顶 3 张，从中选择 2 张呈现及另一名玩家；也可以直接选择【没买到衣服】。对方分给双方各 1 张并立即打出。若合计仅有 1 张呈现，你可以立即对自己打出；未选顶牌按原顺序放回牌堆顶。",
     翻箱倒柜: "将公共牌列洗回暗牌并重新翻出三张；然后再次暗摸或明拿，并正常出一张牌。",
     心动夸夸: "选择一名其他玩家，你与其各获得 1 Joy。其获得一枚来自你的心动标记。此后，每当你对其使用一张牌时，你获得 1 Joy。",
     封心锁爱: "将此牌留在你面前。你不能成为【心动夸夸】的目标。若你已有心动标记，弃置这些标记，并使每枚标记的发起者失去 1 Joy。",
@@ -378,7 +417,7 @@ function cardEffectCopy(name: string) {
     他: "选择一名玩家，使其成为男性；目标可支付 1 Joy 改为蓝读取的非二元。",
     美妆博主: "蓝读取 +2 Joy；粉读取展示牌堆顶 3 张，可立即打出其中一张呈现，其余牌置于牌堆底。",
     "职场 Dress Code": "对所有未受职场效果豁免的玩家结算。蓝：弃置所有带 ✦ 的呈现；若有【扑朔迷离】，可选择保留其中 1 张。蓝栏不计算检定数，【先入为主】及一般 ±1 修正不影响。粉：若检定数少于 2，失去 1 Joy；正常受到检定修正影响。若【职场 DEI】已生效，本牌无效。",
-    "职场 DEI": "所有玩家 +1 Joy；在场时【职场 Dress Code】无效。",
+    "职场 DEI": "所有未受职场效果豁免的玩家 +1 Joy；本局之后的【职场 Dress Code】无效。",
     "全女空间！": "场地：蓝读取不能明拿；粉读取新增检定呈现时 +1 Joy。",
     福灵塔: "场地，持续至打出者下回合结束。蓝：至少拥有 1 张带 ✦ 的呈现时，场地期间限一次将长期公开身份改为女性或非二元；非二元继承蓝读取。粉 / 白：每当你对另一名玩家出牌后，你摸 2 弃 2，对方摸 1 弃 1。按触发时身份结算；从蓝转为粉或白后，可继续触发相应效果。",
     漫展: "场地，持续至打出者下回合结束。蓝：对自己打出的检定呈现不计正常出牌；每以此方式打出一张牌后，重新进入拿牌阶段，拿牌后可继续出牌。粉：每回合限一次，移动场上一张呈现；你与原持有者各 +1 Joy，移动自己的牌时共 +2 Joy。白：场地打开时选择本场地使用蓝或粉效果。移动不视为打出呈现。",
@@ -549,7 +588,9 @@ function CardFace({ card }: { card: SimCard }) {
               {(() => {
                 const effectCopy = cardEffectCopy(card.name);
                 const lengthClass =
-                  card.name === "伪娘团"
+                  card.name === "开个小证"
+                    ? "effect-copy-certificate"
+                    : card.name === "伪娘团"
                     ? "effect-copy-femboy-group"
                     : effectCopy.length >= 70
                       ? "effect-copy-very-long"
@@ -588,13 +629,98 @@ function DecisionOverlay({
   </div>;
 }
 
-function GameTable({ mode, names, onExit }: { mode: Mode; names: string[]; onExit: () => void }) {
-  const [game, setGame] = useState<SimGame>(() => createSimGame(names));
+function TutorialIntro({ onContinue, onSkip }: { onContinue: () => void; onSkip: () => void }) {
+  return <div className="tutorial-intro-shade" role="dialog" aria-modal="true" aria-labelledby="tutorial-intro-title">
+    <section className="tutorial-intro-card">
+      <header><small>第一次玩？</small><h2 id="tutorial-intro-title">30 秒知道你在干嘛</h2></header>
+      <div className="tutorial-basics intro-story">
+        <article><b>你有一个秘密目标。</b><p>有人想留着长发当文艺男，有人想盛装打扮，也有人想改变长期身份。每个人都只知道自己的目标。</p></article>
+        <article><b>每回合：拿 1 张，打 1 张。</b><p>可以给自己添长发、口红、裙子，也可以把呈现塞给别人、改变身份、拆掉关键牌。</p></article>
+        <article><b>边做自己的目标，边猜别人想干嘛。</b><p>谁一直抢口红？谁死守长发？谁突然开始往别人面前塞裙子？这些行动都会泄露一点信息。看懂以后，就可以抢走关键牌，或者打乱对方的计划。</p></article>
+        <article><b>牌堆用完就揭晓。</b><p>所有人公开秘密目标，计算 <strong>目标分 + Joy</strong>，最高者获胜。</p></article>
+      </div>
+      <footer><button className="tutorial-begin" type="button" onClick={onContinue}>继续：看看五种目标</button><button className="tutorial-skip" type="button" onClick={onSkip}>跳过教学</button></footer>
+    </section>
+  </div>;
+}
+
+function GoalGuide({ onboarding, targetAnchor, onClose }: { onboarding: boolean; targetAnchor: { x: number; y: number } | null; onClose: () => void }) {
+  const [closing, setClosing] = useState(false);
+  const [showScores, setShowScores] = useState(false);
+  const fromTargetCard = Boolean(targetAnchor);
+  const anchorStyle = targetAnchor ? {
+    "--goal-guide-x": `${targetAnchor.x}px`,
+    "--goal-guide-y": `${targetAnchor.y}px`,
+  } as CSSProperties : undefined;
+  const closeWithAnimation = () => {
+    if (closing) return;
+    setClosing(true);
+    window.setTimeout(onClose, fromTargetCard ? 260 : 180);
+  };
+  return <div className={`tutorial-intro-shade goal-guide-shade ${closing ? "is-closing" : ""}`} role="dialog" aria-modal="true" aria-labelledby="goal-guide-title">
+    <section className={`tutorial-intro-card goal-guide-card ${fromTargetCard ? "from-target-card" : "from-onboarding"}`} style={anchorStyle}>
+      <header><small>五种秘密目标</small><h2 id="goal-guide-title">{showScores ? "具体怎样得分？" : "每个人心里藏着什么？"}</h2></header>
+      <p className="goal-guide-lead">{showScores ? "终局逐项计分；每剩余 1 Joy，再获得 1 分。" : "不用背。知道大家可能在追什么，就可以开始猜了。"}</p>
+      {!showScores ? <div className="goal-guide-table" role="table" aria-label="五种目标路线速查">
+        <div role="row"><b role="rowheader">文艺男</b><span role="cell">终局身份为男性；留长发；检定不要太高；拿到吉他</span></div>
+        <div role="row"><b role="rowheader">男娘</b><span role="cell">终局身份为男性或非二元；有裙装或口红；堆高检定</span></div>
+        <div role="row"><b role="rowheader">跨女</b><span role="cell">终局身份为女性；有裙装或口红；堆高检定；拿到小证</span></div>
+        <div role="row"><b role="rowheader">demi-girl</b><span role="cell">终局身份为女性或非二元；有裙装或口红；把检定控制在中间；拿到小证</span></div>
+        <div role="row"><b role="rowheader">enby</b><span role="cell">终局身份为非二元；触发白色效果；收集宽大卫衣或亚文化裙裤、吉他、小证</span></div>
+      </div> : <div className="goal-score-guide" aria-label="五种目标具体分值">
+        <article><b>文艺男</b><p><span>终局男性 <em>+3</em></span><span>长发且检定不超过 2 <em>+8</em></span><span>拥有吉他 <em>+4</em></span></p></article>
+        <article><b>男娘</b><p><span>终局男性或非二元 <em>+4</em></span><span>裙装/口红且检定 ≥3 <em>+8</em></span><span>上述条件且检定 ≥4 <em>改为 +10</em></span></p></article>
+        <article><b>跨女</b><p><span>终局女性 <em>+4</em></span><span>裙装/口红且检定 ≥3 <em>+8</em></span><span>拥有小证 <em>+4</em></span></p></article>
+        <article><b>demi-girl</b><p><span>终局女性或非二元 <em>+4</em></span><span>裙装/口红且检定为 2–3 <em>+8</em></span><span>拥有小证 <em>+2</em></span></p></article>
+        <article><b>enby</b><p><span>终局非二元 <em>+4</em></span><span>首次触发任意白色牌效 <em>+6</em></span><span>宽大卫衣或裙裤、吉他、小证，每件 +2 <em>至多 +6</em></span></p></article>
+      </div>}
+      <footer><button className="goal-guide-secondary" type="button" onClick={() => setShowScores((value) => !value)}>{showScores ? "← 返回" : "具体分值"}</button><button className="tutorial-begin" type="button" onClick={closeWithAnimation}>{onboarding ? "知道了，开始玩" : "知道了，继续玩"}</button></footer>
+    </section>
+  </div>;
+}
+
+function TutorialCoachmark({ tip, cardName, onDismiss, onSkipAll }: { tip: TutorialTipId; cardName?: string; onDismiss: () => void; onSkipAll: () => void }) {
+  const content = TUTORIAL_TIPS[tip];
+  const title = cardName && tip === "ternary"
+    ? `【${cardName}】是蓝、白、粉三切牌`
+    : cardName && tip === "split"
+      ? `【${cardName}】按当前读取结算`
+    : cardName && tip === "response"
+      ? `【${cardName}】是一次响应选择`
+      : content.title;
+  const copy = cardName && tip === "scoring"
+    ? `【${cardName}】是主要跑分牌。观察场上条件、选择合适时机打出，可能一次获得较多 Joy；给予别人的 Joy 也会成为其分数。`
+    : content.copy;
+  return <aside className={`tutorial-coachmark tutorial-${tip}`} role="status" aria-live="polite">
+    <button className="tutorial-tip-close" type="button" onClick={onDismiss} aria-label="关闭这条提示">×</button>
+    <b>{title}</b>
+    <p>{copy}</p>
+    {(tip === "draw" || tip === "play") && <span className="tutorial-view-effect mobile-tutorial-view-effect">左右滑动查看牌效</span>}
+    <div className="tutorial-tip-actions"><button className="tutorial-tip-continue" type="button" onClick={onDismiss}>知道了，继续</button><button className="tutorial-skip-all" type="button" onClick={onSkipAll}>跳过全部教学</button></div>
+  </aside>;
+}
+
+function GameTable({ mode, names, onExit, startTutorial = false }: { mode: Mode; names: string[]; onExit: () => void; startTutorial?: boolean }) {
+  const [game, setGame] = useState<SimGame>(() => createSimGame(names, Math.random, {}, mode));
   const [memories, setMemories] = useState<AiMemory[]>(() => createAiMemories(4));
-  const [running, setRunning] = useState(mode === "spectate");
+  // 单人局始终保持自动推进开启；教学、玩家决策和牌效窗口只临时阻止调度。
+  // 不再用 running 表示这些瞬时阻塞，避免场地追加决策与教学关闭之间产生恢复竞态。
+  const [running, setRunning] = useState(true);
   const [speed, setSpeed] = useState(700);
   const [stepCount, setStepCount] = useState(0);
   const [ruleOpen, setRuleOpen] = useState(false);
+  const [ruleView, setRuleView] = useState<RuleView>("quick");
+  const [tutorialEnabled, setTutorialEnabled] = useState(mode === "solo" && startTutorial);
+  const [tutorialIntroOpen, setTutorialIntroOpen] = useState(mode === "solo" && startTutorial);
+  const [goalGuideOpen, setGoalGuideOpen] = useState(false);
+  const [goalGuideOnboarding, setGoalGuideOnboarding] = useState(false);
+  const [goalGuideAnchor, setGoalGuideAnchor] = useState<{ x: number; y: number } | null>(null);
+  const [goalGuideReturnPulse, setGoalGuideReturnPulse] = useState(false);
+  const [tutorialSeen, setTutorialSeen] = useState<Partial<Record<TutorialTipId, boolean>>>({});
+  const [tutorialHistoryLoaded, setTutorialHistoryLoaded] = useState(mode !== "solo");
+  const [tutorialObservedCard, setTutorialObservedCard] = useState<SimCard | null>(null);
+  const tutorialConfirmedRef = useRef<Set<TutorialTipId>>(new Set());
+  const tutorialDismissedContextsRef = useRef<Set<string>>(new Set());
   const [logOpen, setLogOpen] = useState(false);
   const [pendingPronoun, setPendingPronoun] = useState<PendingPronoun | null>(null);
   const [truthReveal, setTruthReveal] = useState<TruthReveal | null>(null);
@@ -611,6 +737,77 @@ function GameTable({ mode, names, onExit }: { mode: Mode; names: string[]; onExi
   const [dragOverTargetId, setDragOverTargetId] = useState<number | null>(null);
   const resultStageRef = useRef<HTMLDivElement>(null);
   const [resultScale, setResultScale] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (mode !== "solo") return;
+    try {
+      const saved = window.localStorage.getItem(TUTORIAL_TIPS_KEY);
+      if (saved) {
+        const stored = JSON.parse(saved) as Partial<Record<TutorialTipId, boolean>>;
+        setTutorialSeen((current) => ({ ...stored, ...current }));
+      }
+    } catch {
+      // 无法读取本地记录时沿用本局已确认的提示，避免回退后重复弹出。
+    } finally {
+      // 教学历史载入前不计算提示，避免组件重建时已读提示先闪现一次。
+      setTutorialHistoryLoaded(true);
+    }
+  }, [mode]);
+
+  const saveTutorialSeen = useCallback((next: Partial<Record<TutorialTipId, boolean>>) => {
+    setTutorialSeen(next);
+    try { window.localStorage.setItem(TUTORIAL_TIPS_KEY, JSON.stringify(next)); } catch { /* 本地存储不可用时仅保留本局状态 */ }
+  }, []);
+
+  const markTutorialSeen = useCallback((tip: TutorialTipId) => {
+    tutorialConfirmedRef.current.add(tip);
+    setTutorialSeen((current) => {
+      const next = { ...current, [tip]: true };
+      if (tip === "clothing") next.present = true;
+      if (tip === "split" || tip === "ternary") next.action = true;
+      if (["identity-affirmation", "crush", "scoring", "life-change", "workplace-dress-code", "workplace-dei", "freelancer"].includes(tip)) next.action = true;
+      try { window.localStorage.setItem(TUTORIAL_TIPS_KEY, JSON.stringify(next)); } catch { /* noop */ }
+      return next;
+    });
+  }, []);
+
+  const beginTutorial = useCallback(() => {
+    try { window.localStorage.setItem(TUTORIAL_INTRO_KEY, "1"); } catch { /* noop */ }
+    setTutorialEnabled(true);
+    setTutorialIntroOpen(false);
+    setGoalGuideOpen(false);
+    setGoalGuideOnboarding(false);
+  }, []);
+
+  const continueTutorialIntro = useCallback(() => {
+    setTutorialIntroOpen(false);
+    setGoalGuideOnboarding(true);
+    setGoalGuideAnchor(null);
+    setGoalGuideOpen(true);
+  }, []);
+
+  const skipTutorial = useCallback(() => {
+    try { window.localStorage.setItem(TUTORIAL_INTRO_KEY, "1"); } catch { /* noop */ }
+    setTutorialEnabled(false);
+    setTutorialIntroOpen(false);
+    setGoalGuideOpen(false);
+    setGoalGuideOnboarding(false);
+    setGoalGuideAnchor(null);
+    setTutorialObservedCard(null);
+  }, []);
+
+  const replayTutorial = useCallback(() => {
+    tutorialConfirmedRef.current.clear();
+    tutorialDismissedContextsRef.current.clear();
+    saveTutorialSeen({});
+    setTutorialEnabled(true);
+    setTutorialObservedCard(null);
+    setGoalGuideOpen(false);
+    setGoalGuideOnboarding(false);
+    setGoalGuideAnchor(null);
+    setTutorialIntroOpen(true);
+    setRuleOpen(false);
+  }, [saveTutorialSeen]);
 
   useEffect(() => {
     if (game.phase !== "ended") {
@@ -668,7 +865,6 @@ function GameTable({ mode, names, onExit }: { mode: Mode; names: string[]; onExi
       const pronounCardName = playedCard?.name === "她" || playedCard?.name === "他" ? playedCard.name : null;
       if (mode === "solo" && chosen.targetId === 0 && pronounCardName && !chosen.pronounResponse) {
         setPendingPronoun({ action: chosen, actorId, cardName: pronounCardName });
-        setRunning(false);
         return before;
       }
       const after = applyLegalAction(before, chosen);
@@ -697,7 +893,7 @@ function GameTable({ mode, names, onExit }: { mode: Mode; names: string[]; onExi
       } else {
         setLastPlayAnimationDuration(0);
       }
-      if (playedCard?.name === "换一种活法" && chosen.targetId !== undefined) {
+      if (playedCard?.name === "换一种活法" && !chosen.fizzle && chosen.targetId !== undefined) {
         const humanInvolved = actorId === 0 || chosen.targetId === 0;
         setGoalSwapTransition({
           actorId,
@@ -726,21 +922,6 @@ function GameTable({ mode, names, onExit }: { mode: Mode; names: string[]; onExi
   }, [memories, mode, speed]);
 
   useEffect(() => {
-    if (!running || game.phase === "ended" || isHumanDecision || isHumanBeautyOffer || pendingPronoun || goalSwapTransition || playedCardTransition || fittingRoomNotice || stepCount > 360) return;
-    const showingSelectedFittingRoomCards = game.fittingRoomOffer?.stage === "allocate";
-    const delay = showingSelectedFittingRoomCards ? Math.max(900, speed) : Math.max(30, speed - lastPlayAnimationDuration);
-    const timer = window.setTimeout(() => performAction(), delay);
-    return () => window.clearTimeout(timer);
-  }, [fittingRoomNotice, game, goalSwapTransition, isHumanBeautyOffer, isHumanDecision, lastPlayAnimationDuration, pendingPronoun, performAction, playedCardTransition, running, speed, stepCount]);
-
-  useEffect(() => {
-    if (mode !== "solo") return;
-    const shouldRun = !pendingPronoun && !goalSwapTransition && !isHumanDecision && !isHumanBeautyOffer && game.phase !== "ended";
-    const timer = window.setTimeout(() => setRunning(shouldRun), 0);
-    return () => window.clearTimeout(timer);
-  }, [game.phase, decisionOwnerId, goalSwapTransition, isHumanBeautyOffer, isHumanDecision, mode, pendingPronoun]);
-
-  useEffect(() => {
     if (!truthReveal) return;
     const timer = window.setTimeout(() => setTruthReveal(null), mode === "spectate" ? 3200 : 5000);
     return () => window.clearTimeout(timer);
@@ -754,9 +935,12 @@ function GameTable({ mode, names, onExit }: { mode: Mode; names: string[]; onExi
 
   useEffect(() => {
     if (!playedCardTransition) return;
-    const timer = window.setTimeout(() => setPlayedCardTransition(null), playedCardTransition.duration);
+    const timer = window.setTimeout(() => {
+      if (mode === "solo" && tutorialEnabled && playedCardTransition.actorId !== 0) setTutorialObservedCard(playedCardTransition.card);
+      setPlayedCardTransition(null);
+    }, playedCardTransition.duration);
     return () => window.clearTimeout(timer);
-  }, [playedCardTransition]);
+  }, [mode, playedCardTransition, tutorialEnabled]);
 
   useEffect(() => {
     if (!fittingRoomNotice) return;
@@ -765,14 +949,17 @@ function GameTable({ mode, names, onExit }: { mode: Mode; names: string[]; onExi
   }, [fittingRoomNotice]);
 
   const restart = () => {
-    setGame(createSimGame(names));
+    setGame(createSimGame(names, Math.random, {}, mode));
     setMemories(createAiMemories(4));
     setStepCount(0);
-    setRunning(mode === "spectate");
+    setRunning(true);
     setPendingPronoun(null);
     setTruthReveal(null);
     setGoalSwapTransition(null);
     setPlayedCardTransition(null);
+    setTutorialObservedCard(null);
+    setGoalGuideOpen(false);
+    setGoalGuideOnboarding(false);
     setFittingRoomNotice(null);
     setFittingRoomSelectedIds([]);
     setLastPlayAnimationDuration(0);
@@ -805,6 +992,7 @@ function GameTable({ mode, names, onExit }: { mode: Mode; names: string[]; onExi
   const beautyActions = legalActions.filter((action) => action.type === "beauty-blogger-play");
   const beautyPassAction = legalActions.find((action) => action.type === "beauty-blogger-pass");
   const fittingRoomSelectActions = legalActions.filter((action) => action.type === "fitting-room-select");
+  const fittingRoomSoloAction = legalActions.find((action) => action.type === "fitting-room-solo-play");
   const fittingRoomAllocateActions = legalActions.filter((action) => action.type === "fitting-room-allocate");
   const fittingRoomFizzleAction = legalActions.find((action) => action.type === "fitting-room-fizzle");
   const sharedWardrobeSelectActions = legalActions.filter((action) => action.type === "shared-wardrobe-select");
@@ -874,6 +1062,80 @@ function GameTable({ mode, names, onExit }: { mode: Mode; names: string[]; onExi
   const skipDrawAction = drawActions.find((action) => action.type === "skip-draw");
   const deckAction = blindDrawAction ?? skipDrawAction;
   const noTargetPlayActions = selectedPlayActions.filter((action) => action.targetId === undefined && action.marketCardId === undefined && action.presentId === undefined);
+
+  const rawTutorialTip = useMemo<TutorialTipId | null>(() => {
+    if (!tutorialHistoryLoaded || !tutorialEnabled || tutorialIntroOpen || goalGuideOpen || ruleOpen || mode !== "solo" || game.phase === "ended") return null;
+    let desired: TutorialTipId | null = null;
+    const seen = (tip: TutorialTipId) => Boolean(tutorialSeen[tip] || tutorialConfirmedRef.current.has(tip));
+    const readingNeedsHuman = Boolean(readingCheck && readingPlayer?.id === 0);
+    const hasResponseChoice = Boolean(
+      pendingPronoun
+      || (game.certificateOffer && isHumanDecision)
+      || (game.truthOffer && isHumanDecision)
+      || (game.confusionOffer && isHumanDecision)
+    );
+
+    if (readingNeedsHuman && !seen("reading")) desired = "reading";
+    else if (hasResponseChoice && !seen("response")) desired = "response";
+    else if (game.deck.length === 4 && !seen("endgame")) desired = "endgame";
+    else if (isHumanDecision && humanHasDistinctTempIdentity && !seen("temporary")) desired = "temporary";
+    else if (isHumanDecision && humanIdentity === "nonbinary" && !seen("nonbinary")) desired = "nonbinary";
+    else {
+      const encounteredCard = (isHumanDecision ? selectedHandCard : null) ?? tutorialObservedCard;
+      const canFizzle = selectedPlayActions.some((action) => action.fizzle === true);
+      if (encounteredCard?.kind === "venue" && !seen("venue")) desired = "venue";
+      else if (encounteredCard?.name === "身份肯定" && !seen("identity-affirmation")) desired = "identity-affirmation";
+      else if (encounteredCard?.name === "心动夸夸" && !seen("crush")) desired = "crush";
+      else if (encounteredCard?.name === "换一种活法" && !seen("life-change")) desired = "life-change";
+      else if (encounteredCard?.name === "职场 Dress Code" && !seen("workplace-dress-code")) desired = "workplace-dress-code";
+      else if (encounteredCard?.name === "职场 DEI" && !seen("workplace-dei")) desired = "workplace-dei";
+      else if (encounteredCard?.name === "自由职业者" && !seen("freelancer")) desired = "freelancer";
+      else if (encounteredCard && TUTORIAL_SCORING_CARDS.has(encounteredCard.name) && !seen("scoring")) desired = "scoring";
+      else if (encounteredCard && isTernaryEffectCard(encounteredCard) && !seen("ternary")) desired = "ternary";
+      else if (encounteredCard && isSplitCard(encounteredCard) && !seen("split")) desired = "split";
+      else if (encounteredCard && canFizzle && !seen("fizzle")) desired = "fizzle";
+      else if (encounteredCard?.clothing && !seen("clothing")) desired = "clothing";
+      else if (encounteredCard?.kind === "present" && !seen("present")) desired = "present";
+      else if (encounteredCard?.kind === "action" && !seen("action")) desired = "action";
+      else if (isHumanDecision && game.phase === "draw" && !seen("draw")) desired = "draw";
+      else if (isHumanDecision && game.phase === "play" && !seen("play")) desired = "play";
+    }
+
+    return desired;
+  }, [game, goalGuideOpen, humanHasDistinctTempIdentity, humanIdentity, isHumanDecision, mode, pendingPronoun, readingCheck, readingPlayer?.id, ruleOpen, selectedHandCard, selectedPlayActions, tutorialEnabled, tutorialHistoryLoaded, tutorialIntroOpen, tutorialObservedCard, tutorialSeen]);
+
+  const tutorialContextCard = (isHumanDecision ? selectedHandCard : null) ?? tutorialObservedCard;
+  const cardDrivenTip = rawTutorialTip && !["reading", "response", "temporary", "nonbinary", "draw", "play", "endgame"].includes(rawTutorialTip);
+  const tutorialContextKey = rawTutorialTip
+    ? cardDrivenTip && tutorialContextCard
+      ? `card:${tutorialContextCard.id}`
+      : `${rawTutorialTip}:${game.turnSerial}:${decisionOwnerId}`
+    : null;
+  const tutorialTip = rawTutorialTip && tutorialContextKey && !tutorialDismissedContextsRef.current.has(tutorialContextKey)
+    ? rawTutorialTip
+    : null;
+  const tutorialCardName = tutorialTip === "response"
+    ? pendingPronoun?.cardName
+      ?? (game.certificateOffer ? "开个小证" : null)
+      ?? (game.truthOffer ? "真心话大冒险" : null)
+      ?? (game.confusionOffer ? "迷茫" : null)
+      ?? undefined
+    : tutorialContextCard?.name;
+
+  const dismissTutorialTip = useCallback(() => {
+    if (tutorialContextKey) tutorialDismissedContextsRef.current.add(tutorialContextKey);
+    if (tutorialTip) markTutorialSeen(tutorialTip);
+    // AI 打出的教学牌只负责触发当前提示；确认时原子释放这次观察。
+    setTutorialObservedCard(null);
+  }, [markTutorialSeen, tutorialContextKey, tutorialTip]);
+
+  useEffect(() => {
+    if (!running || tutorialIntroOpen || goalGuideOpen || ruleOpen || tutorialTip || game.phase === "ended" || isHumanDecision || isHumanBeautyOffer || pendingPronoun || goalSwapTransition || playedCardTransition || fittingRoomNotice || stepCount > 360) return;
+    const showingSelectedFittingRoomCards = game.fittingRoomOffer?.stage === "allocate";
+    const delay = showingSelectedFittingRoomCards ? Math.max(900, speed) : Math.max(30, speed - lastPlayAnimationDuration);
+    const timer = window.setTimeout(() => performAction(), delay);
+    return () => window.clearTimeout(timer);
+  }, [fittingRoomNotice, game, goalGuideOpen, goalSwapTransition, isHumanBeautyOffer, isHumanDecision, lastPlayAnimationDuration, pendingPronoun, performAction, playedCardTransition, ruleOpen, running, speed, stepCount, tutorialIntroOpen, tutorialTip]);
 
   const selectHandCard = (cardId: string) => {
     if (!isHumanDecision || game.phase !== "play") return;
@@ -1063,17 +1325,51 @@ function GameTable({ mode, names, onExit }: { mode: Mode; names: string[]; onExi
     </div>
   );
 
+  const renderGoalAndSelfStatus = () => <>
+    <aside className={`goal-card-object ${goalGuideReturnPulse ? "is-guide-return" : ""}`}>
+      <header><small>你的目标</small><strong>{humanPlayer.goal}</strong><button className="goal-guide-trigger" type="button" onClick={(event) => { const rect = event.currentTarget.getBoundingClientRect(); setGoalGuideAnchor({ x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 }); setGoalGuideOnboarding(false); setGoalGuideOpen(true); }}>五种目标</button></header>
+      <div>{humanCriteria.map((criterion) => <p className={criterion.done ? "is-done" : ""} key={criterion.text}><span>{criterion.done ? "✓ " : "□ "}{criterion.text}</span><b>{criterion.points}</b></p>)}</div>
+    </aside>
+    <div className="self-status"><IdentityHistoryStack player={humanPlayer} superseded={humanHasDistinctTempIdentity} />{humanHasDistinctTempIdentity && <span className={`temp-identity-token identity-${humanPlayer.tempIdentity}`} title="临时身份持续至自己的下回合结束"><strong aria-label="临时身份">◷</strong>{humanPlayer.tempIdentity === "male" ? "男性" : humanPlayer.tempIdentity === "female" ? "女性" : `非二元 · ${humanReading === "male" ? "蓝" : "粉"}读取`}</span>}<b className="self-check-count" aria-label={`${simChecks(humanPlayer)} 个检定`}><CheckPip />{simChecks(humanPlayer)}</b><b>Joy {humanPlayer.joy} ☺</b></div>
+  </>;
+
   return (
     <main className="prototype-shell tabletop-shell">
       <header className="tabletop-header">
         <div className="mini-logo"><strong>dress-<em>up!</em></strong></div>
         <div className="table-utilities">
-          <button onClick={() => setRuleOpen(true)} aria-label="规则" title="规则">?</button>
+          <button onClick={() => { setRuleView("quick"); setRuleOpen(true); }} aria-label="规则" title="规则">?</button>
           <button onClick={() => setLogOpen((value) => !value)} aria-label="对局记录" title="对局记录">☷</button>
           <button onClick={restart} aria-label="重新开局" title="重新开局">↻</button>
           <button onClick={onExit} aria-label="返回菜单" title="返回菜单">×</button>
         </div>
       </header>
+
+      {(tutorialIntroOpen || goalGuideOpen) && <button
+        className="tutorial-log-access"
+        type="button"
+        onClick={() => setLogOpen(true)}
+        aria-label="对局记录"
+        title="对局记录"
+      >☷</button>}
+
+      {tutorialIntroOpen && <TutorialIntro onContinue={continueTutorialIntro} onSkip={skipTutorial} />}
+      {goalGuideOpen && <GoalGuide
+        onboarding={goalGuideOnboarding}
+        targetAnchor={goalGuideAnchor}
+        onClose={goalGuideOnboarding ? beginTutorial : () => {
+          setGoalGuideOpen(false);
+          setGoalGuideAnchor(null);
+          setGoalGuideReturnPulse(true);
+          window.setTimeout(() => setGoalGuideReturnPulse(false), 900);
+        }}
+      />}
+      {tutorialTip && !tutorialIntroOpen && <TutorialCoachmark
+        tip={tutorialTip}
+        cardName={tutorialCardName}
+        onDismiss={dismissTutorialTip}
+        onSkipAll={skipTutorial}
+      />}
 
       {(boardMoveMode || sharedWardrobeResponseMode) && <div className="board-move-hint" role="status">
         <b>{manzhanDragMode ? "漫展 · 粉" : sharedWardrobeResponseMode ? "共享衣橱 · 指定" : "共享衣橱"}</b>
@@ -1125,7 +1421,8 @@ function GameTable({ mode, names, onExit }: { mode: Mode; names: string[]; onExi
                 {player.removedPresents.map(({ card, untilTurnSerial }) => <div className="mini-object removing-present" aria-hidden="true" key={`${card.id}-${untilTurnSerial}`}><i>{cardGlyph(card.name)}</i><small>{shortName(card.name)}</small>{card.checked && <b><CheckPip /></b>}</div>)}
                 {player.items.map((item, index) => {
                   const imageSrc = cardImage(item);
-                  return <div className="mini-object item-object" key={`${item}-${index}`}><i>{imageSrc ? <span className="presentation-art-image" style={{ backgroundImage: `url(${imageSrc})` }} aria-hidden="true" /> : cardGlyph(item)}</i><small>{item}</small></div>;
+                  const help = persistentItemHelp(item);
+                  return <div className={`mini-object item-object ${help ? "has-hover-help" : ""}`} title={help} aria-label={help ? `${item}：${help}` : undefined} key={`${item}-${index}`}><i>{imageSrc ? <span className="presentation-art-image" style={{ backgroundImage: `url(${imageSrc})` }} aria-hidden="true" /> : cardGlyph(item)}</i><small>{item}</small></div>;
                 })}
                 {player.ambiguityCard && <div className="mini-object ambiguity-status-object" aria-label={`${player.ambiguityCard.name}，当前${checkAdjustmentLabel(ambiguityCheckAdjustment(player.ambiguityCard.name, currentIdentity))}`}>
                   <i>{CARD_IMAGES[player.ambiguityCard.name] ? <span className="presentation-art-image ambiguity-status-image" style={{ backgroundImage: `url(${CARD_IMAGES[player.ambiguityCard.name]})` }} aria-hidden="true" /> : cardGlyph(player.ambiguityCard.name)}</i><small>{player.ambiguityCard.name}</small><CheckAdjustmentMark adjustment={ambiguityCheckAdjustment(player.ambiguityCard.name, currentIdentity)} className="ambiguity-check-marker" />
@@ -1183,16 +1480,11 @@ function GameTable({ mode, names, onExit }: { mode: Mode; names: string[]; onExi
         </section>
 
         {mode === "solo" && renderOwnHand("mobile-own-hand")}
+        {mode === "solo" && <section className="mobile-personal-summary">{renderGoalAndSelfStatus()}</section>}
       </section>
 
-      {mode === "solo" && <section className="personal-table">
-        <aside className="goal-card-object">
-          <header><small>你的目标</small><strong>{humanPlayer.goal}</strong></header>
-          <div>{humanCriteria.map((criterion) => <p className={criterion.done ? "is-done" : ""} key={criterion.text}><span>{criterion.done ? "✓ " : "□ "}{criterion.text}</span><b>{criterion.points}</b></p>)}</div>
-        </aside>
-
-         <div className="self-status"><IdentityHistoryStack player={humanPlayer} superseded={humanHasDistinctTempIdentity} />{humanHasDistinctTempIdentity && <span className={`temp-identity-token identity-${humanPlayer.tempIdentity}`} title="临时身份持续至自己的下回合结束"><strong aria-label="临时身份">◷</strong>{humanPlayer.tempIdentity === "male" ? "男性" : humanPlayer.tempIdentity === "female" ? "女性" : `非二元 · ${humanReading === "male" ? "蓝" : "粉"}读取`}</span>}<b className="self-check-count" aria-label={`${simChecks(humanPlayer)} 个检定`}><CheckPip />{simChecks(humanPlayer)}</b><b>Joy {humanPlayer.joy} ☺</b></div>
-
+      {mode === "solo" && <section className="personal-table desktop-personal-table">
+         {renderGoalAndSelfStatus()}
          {renderOwnHand("desktop-own-hand")}
       </section>}
 
@@ -1269,8 +1561,8 @@ function GameTable({ mode, names, onExit }: { mode: Mode; names: string[]; onExi
       {game.fittingRoomOffer?.stage === "select" && fittingRoomActor && fittingRoomTarget && isHumanDecision && <DecisionOverlay minimized={choiceMinimized} onMinimizedChange={setChoiceMinimized} ariaLabel="闺蜜试衣间选择呈现"><section className="identity-choice-card fitting-room-choice">
         <span className="choice-kicker">闺蜜试衣间 · {fittingRoomActor.name} 与 {fittingRoomTarget.name}</span>
         <div className="fitting-room-choice-heading">
-          <div><h2>挑两张呈现</h2><p>点击卡牌逐张选择。非呈现牌不可选；未选的牌堆顶牌会按原顺序放回。</p></div>
-          <b aria-label={`已选择 ${fittingRoomSelectedIds.length} 张，共需 2 张`}>{fittingRoomSelectedIds.length}/2</b>
+          <div><h2>{fittingRoomSoloAction ? "只找到一张呈现" : "挑两张呈现"}</h2><p>{fittingRoomSoloAction ? "你可以将这张呈现立即打给自己；未选的牌堆顶牌会按原顺序放回。" : "点击卡牌逐张选择。非呈现牌不可选；未选的牌堆顶牌会按原顺序放回。"}</p></div>
+          {!fittingRoomSoloAction && <b aria-label={`已选择 ${fittingRoomSelectedIds.length} 张，共需 2 张`}>{fittingRoomSelectedIds.length}/2</b>}
         </div>
         <div className="fitting-room-source-headings" aria-hidden="true"><span>公共牌列</span><span>牌堆顶 · 仅你可见</span></div>
         <div className="fitting-room-card-grid compact-card-context">{fittingRoomCandidateCards.map((card, index) => {
@@ -1290,11 +1582,13 @@ function GameTable({ mode, names, onExit }: { mode: Mode; names: string[]; onExi
           >
             <span className="fitting-room-card-source">{fromTop ? `牌堆顶 ${topIndex + 1}` : `公共牌 ${index + 1}`}</span>
             <div className={`table-card ${cardClass(card.kind, card.checked)}`}><CardFace card={card} /></div>
-            <small>{selected ? "已选择" : canSelect ? "点击选择" : "不可选择"}</small>
+            <small>{fittingRoomSoloAction && canSelect ? "可立即打给自己" : selected ? "已选择" : canSelect ? "点击选择" : "不可选择"}</small>
           </button>;
         })}</div>
         <div className="fitting-room-selection-actions">
-          <button className="fitting-room-confirm" disabled={!fittingRoomSelectedAction} onClick={() => fittingRoomSelectedAction && performAction(fittingRoomSelectedAction)}>确认这两张</button>
+          {fittingRoomSoloAction
+            ? <button className="fitting-room-confirm" onClick={() => performAction(fittingRoomSoloAction)}>立即打给自己</button>
+            : <button className="fitting-room-confirm" disabled={!fittingRoomSelectedAction} onClick={() => fittingRoomSelectedAction && performAction(fittingRoomSelectedAction)}>确认这两张</button>}
           {fittingRoomFizzleAction && <button className="fitting-room-fizzle" onClick={() => performAction(fittingRoomFizzleAction)}>没买到衣服</button>}
         </div>
       </section></DecisionOverlay>}
@@ -1386,11 +1680,23 @@ function GameTable({ mode, names, onExit }: { mode: Mode; names: string[]; onExi
         <button onClick={() => setRuleOpen(false)}>×</button>
       </header>
 
-      <p className="card-effect-gesture" role="note">
-        <span className="card-effect-gesture-desktop">悬浮或滚动查看牌面效果</span>
-        <span className="card-effect-gesture-mobile">左右滑动查看牌面效果</span>
-      </p>
+      <p className="card-effect-gesture card-effect-gesture-mobile-only" role="note">左右滑动查看牌面效果</p>
 
+      <nav className="rule-view-tabs" aria-label="规则内容">
+        <button className={ruleView === "quick" ? "is-active" : ""} type="button" onClick={() => setRuleView("quick")}>速查</button>
+        <button className={ruleView === "full" ? "is-active" : ""} type="button" onClick={() => setRuleView("full")}>完整规则</button>
+      </nav>
+
+      {ruleView === "quick" && <div className="quick-rules">
+        <section><b>回合</b><p>拿 1 张 → 打 1 张</p></section>
+        <section><b>呈现</b><p>留在玩家面前；✦ 是检定；服装最多保留一件。</p></section>
+        <section><b>行动</b><p>通常结算后弃置；写有“留在你面前”的牌持续生效。</p></section>
+        <section><b>场地</b><p>场上同时只有一个，新场地会替换旧场地。</p></section>
+        <section><b>读取</b><p>蓝看蓝，粉看粉；非二元二切看读取，三切看白。</p></section>
+        <section><b>终局</b><p>牌堆耗尽后补齐本轮；总分 = 目标得分 + Joy。</p></section>
+      </div>}
+
+      {ruleView === "full" && <div className="full-rules">
       <section>
         <b>dress-up! · 4 人隐藏目标策略卡牌游戏</b>
         <p>
@@ -1489,6 +1795,12 @@ function GameTable({ mode, names, onExit }: { mode: Mode; names: string[]; onExi
           <strong>最后算：目标得分 + Joy。</strong>
         </p>
       </section>
+      </div>}
+
+      {mode === "solo" && <footer className="rule-tutorial-footer">
+        <button type="button" onClick={replayTutorial}>重新开启教学</button>
+        <small>不会重开当前对局。</small>
+      </footer>}
     </aside>
   </div>
 )}
@@ -1500,10 +1812,20 @@ export default function Home() {
   const [mode, setMode] = useState<Mode>("spectate");
   const [started, setStarted] = useState(false);
   const [humanName, setHumanName] = useState("");
+  const [startTutorial, setStartTutorial] = useState(false);
+
+  const launchGame = () => {
+    let shouldStartTutorial = false;
+    if (mode === "solo") {
+      try { shouldStartTutorial = window.localStorage.getItem(TUTORIAL_INTRO_KEY) !== "1"; } catch { shouldStartTutorial = true; }
+    }
+    setStartTutorial(shouldStartTutorial);
+    setStarted(true);
+  };
 
   if (started) {
     const names = mode === "spectate" ? DEFAULT_AI_NAMES : [humanName.trim() || "欣娅", ...DEFAULT_SOLO_NAMES.slice(1)];
-    return <GameTable mode={mode} names={names} onExit={() => setStarted(false)} />;
+    return <GameTable mode={mode} names={names} startTutorial={startTutorial} onExit={() => setStarted(false)} />;
   }
 
   return (
@@ -1518,7 +1840,7 @@ export default function Home() {
         <div className="mode-heading"><h2>怎么开始这局？</h2></div>
         <div className="mode-tabs"><button className={mode === "spectate" ? "selected" : ""} onClick={() => setMode("spectate")}><span><b>4 AI 观战</b><small>看四个 AI 自己玩完一局。</small></span></button><button className={mode === "solo" ? "selected" : ""} onClick={() => setMode("solo")}><span><b>1 人 + 3 AI</b><small>你来出牌，其余玩家自动行动。</small></span></button></div>
         {mode === "solo" && <label className="human-name"><span>你的名字</span><input value={humanName} placeholder="欣娅" maxLength={10} onChange={(event) => setHumanName(event.target.value)} /></label>}
-        <button className="launch-button" onClick={() => setStarted(true)}><span>{mode === "spectate" ? "开始观战" : "开始游戏"}</span><b>→</b></button>
+        <button className="launch-button" onClick={launchGame}><span>{mode === "spectate" ? "开始观战" : "开始游戏"}</span><b>→</b></button>
       </section>
       <div className="landing-props" aria-hidden="true"><div className="prop-card prop-one" /><div className="prop-card prop-three" /></div>
     </main>

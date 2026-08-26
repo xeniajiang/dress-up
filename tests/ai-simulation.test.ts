@@ -56,8 +56,22 @@ test("heuristic AI completes 40 games without illegal states or loops", () => {
   }
 });
 
-test("human pronoun response can accept binary identity or pay to stay nonbinary", () => {
-  const base = createSimGame(["Human", "B", "C", "D"]);
+test("真人局记录使用正确开场文案与玩家名，Joy 变化写入记录", () => {
+  const solo = createSimGame(["欣娅", "花雨", "晓山", "姬姐"], Math.random, {}, "solo");
+  assert.ok(solo.events.includes("1 人 + 3 AI 对局开始。"));
+  assert.ok(!solo.events.includes("AI 观战局开始。"));
+
+  solo.active = 0;
+  solo.phase = "play";
+  solo.players[0].presents = [{ id: "shirt-for-log", name: "皱巴巴的格子衬衫", kind: "present", clothing: true }];
+  solo.players[0].hand = [{ id: "programmer-log", name: "程序员", kind: "action" }];
+  const action = enumerateLegalActions(solo).find((candidate) => candidate.cardId === "programmer-log")!;
+  const after = applyLegalAction(solo, action);
+  assert.ok(after.events.some((entry) => entry === "欣娅 因【程序员】获得 2 Joy。"));
+});
+
+test("真人玩家可接受二元身份，或支付 Joy 保持非二元", () => {
+  const base = createSimGame(["欣娅", "B", "C", "D"]);
   base.active = 0;
   base.phase = "play";
   base.players[0].identity = "nonbinary";
@@ -76,6 +90,7 @@ test("human pronoun response can accept binary identity or pay to stay nonbinary
   assert.equal(stayed.players[0].joy, 1);
   assert.equal(stayed.players[0].joyLossVersion, 1);
   assert.equal(stayed.players[0].lastJoyLoss, 1);
+  assert.ok(stayed.events.some((entry) => entry === "欣娅 因【她】失去 1 Joy。"));
 });
 
 test("心动夸夸只标记其他玩家、可累积多个对象，并在后续对任一心动对象出牌时奖励 Joy", () => {
@@ -1244,6 +1259,7 @@ test("换一种活法即使存在交换目标也可以主动空出", () => {
   assert.equal(actions.filter((action) => action.targetId !== undefined).length, 3, "仍应保留三名可交换目标");
   const fizzle = actions.find((action) => action.id.endsWith(":fizzle"));
   assert.ok(fizzle, "存在可交换目标时也应提供空出动作");
+  assert.equal(fizzle.fizzle, true, "空出必须使用明确字段，不能只依赖 action id 后缀");
   assert.equal(fizzle.targetId, undefined);
 
   const game = applyLegalAction(base, fizzle);
@@ -2151,6 +2167,36 @@ test("闺蜜试衣间始终把公共列与牌堆顶三张一起交给出牌者�
   assert.ok(game.discard.some((card) => card.id === "old-shirt"));
   assert.equal(game.market.length, 3, "双方都打出后才补满公共牌列");
   assert.equal(game.active, 1);
+});
+
+test("闺蜜试衣间合计仅有一张呈现时可立即打给自己", () => {
+  const base = createSimGame(["A", "B", "C", "D"]);
+  base.active = 0;
+  base.phase = "play";
+  base.players[0].hand = [{ id: "solo-fitting-room", name: "闺蜜试衣间", kind: "action" }];
+  base.market = [
+    { id: "market-action-a", name: "打烊", kind: "action" },
+    { id: "market-action-b", name: "理发", kind: "action" },
+    { id: "market-action-c", name: "卸甲", kind: "action" },
+  ];
+  base.deck = [
+    { id: "only-fitting-present", name: "商场专柜里的裙子", kind: "present", checked: true, dress: true, clothing: true },
+    { id: "returned-top-a", name: "迷茫", kind: "action" },
+    { id: "returned-top-b", name: "她", kind: "action" },
+    { id: "below-fitting-room", name: "学吉他", kind: "action" },
+  ];
+
+  const play = enumerateLegalActions(base).find((action) => action.cardId === "solo-fitting-room" && action.targetId === 1)!;
+  let game = applyLegalAction(base, play);
+  const solo = enumerateLegalActions(game).find((action) => action.type === "fitting-room-solo-play");
+  assert.ok(solo, "合计仅一张呈现时应提供立即打给自己的动作");
+  assert.equal(solo.presentId, "only-fitting-present");
+
+  game = applyLegalAction(game, solo!);
+  assert.ok(game.players[0].presents.some((card) => card.id === "only-fitting-present"));
+  assert.deepEqual(game.deck.slice(0, 3).map((card) => card.id), ["returned-top-a", "returned-top-b", "below-fitting-room"], "未选顶牌应保持顺序放回");
+  assert.equal(game.fittingRoomOffer, null);
+  assert.equal(game.active, 1, "立即打出后正常结束回合");
 });
 
 test("闺蜜试衣间从公共列与牌堆顶混选时，未选顶牌按原序放回", () => {

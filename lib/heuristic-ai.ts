@@ -401,6 +401,13 @@ function scoreAction(view: VisibleGame, action: SimAction, memory: AiMemory, ran
     selfValue = 0.35;
     reasons.push("六张牌中没有值得与对方分配的两张呈现");
   }
+  if (action.type === "fitting-room-solo-play" && view.fittingRoomOffer && action.presentId) {
+    const present = fittingRoomCard(view, action.presentId);
+    if (present) {
+      selfValue = cardAffinity(present, goal, self) * 2 + 0.5;
+      reasons.push(`只找到一张呈现，立即对自己打出【${present.name}】`);
+    }
+  }
   if (action.type === "fitting-room-select" && view.fittingRoomOffer && action.presentIds?.length === 2) {
     const pair = action.presentIds.map((id) => fittingRoomCard(view, id)).filter((item): item is SimCard => Boolean(item));
     const recipient = view.players[view.fittingRoomOffer.targetId];
