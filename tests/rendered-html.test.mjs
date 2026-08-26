@@ -55,7 +55,10 @@ test("keeps local game modes, three card categories, and metadata in the applica
   assert.match(page, /\["欣娅", "花雨", "晓山", "姬姐"\]/);
   assert.match(page, /humanName\.trim\(\) \|\| "欣娅"/);
   assert.match(page, /choice-restore-button/);
-  assert.match(page, /isHumanBeautyOffer\s*=\s*mode === "solo" && game\.beautyOffer\?\.playerId === 0/);
+  assert.match(page, /SOLO_CONTROLLERS:[^=]+\s*=\s*\["human", "ai", "ai", "ai"\]/);
+  assert.match(page, /controllerForDecision\(game\)/);
+  assert.match(page, /shouldWaitForHuman\s*=\s*decisionController === "human"/);
+  assert.doesNotMatch(page, /decisionOwnerId\s*===\s*0/);
   assert.match(page, /展示牌堆顶 \{game\.beautyOffer\.revealed\.length\} 张/);
   assert.match(page, /不打出，全部置于牌堆底/);
   assert.match(page, /sharedWardrobeDragMode/);
@@ -121,4 +124,14 @@ test("keeps local game modes, three card categories, and metadata in the applica
   assert.match(styles, /overscroll-behavior:\s*none;/);
   assert.match(layout, /DRESS-UP! · 四人身份卡牌游戏/);
   assert.match(layout, /lang="zh-CN"/);
+});
+
+test("online room reuses the tabletop and never mounts the solo tutorial", async () => {
+  const roomClient = await readFile(new URL("../app/room/room-client.tsx", import.meta.url), "utf8");
+  assert.match(roomClient, /prototype-shell tabletop-shell multiplayer-tabletop/);
+  assert.match(roomClient, /className="player-grid"/);
+  assert.match(roomClient, /className="public-table"/);
+  assert.match(roomClient, /personal-table desktop-personal-table/);
+  assert.match(roomClient, /GoalGuide onboarding=\{false\}/);
+  assert.doesNotMatch(roomClient, /TutorialIntro|TutorialCoachmark|startTutorial|tutorialEnabled|重新开启教学/);
 });

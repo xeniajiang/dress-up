@@ -1,6 +1,7 @@
 export type SimIdentity = "male" | "female" | "nonbinary";
 export type SimSide = "male" | "female";
 export type SimPhase = "draw" | "play" | "ended";
+export type SimController = "human" | "ai";
 
 export type SimGoal = "文艺男" | "男娘" | "跨女" | "demi-girl" | "enby";
 export type ShopOwnerScoring = "capped" | "three-four-tier" | "three-four-tier-2-4";
@@ -33,6 +34,7 @@ export type SimIdentityLayer = {
 export type SimPlayer = {
   id: number;
   name: string;
+  controller: SimController;
   goal: SimGoal;
   identity: SimIdentity;
   reading: SimSide;
@@ -56,7 +58,7 @@ export type SimPlayer = {
 };
 
 export type SimGame = {
-  sessionMode: "spectate" | "solo";
+  sessionMode: "spectate" | "solo" | "online";
   rules?: { shopOwnerCap: number; shopOwnerScoring: ShopOwnerScoring };
   players: SimPlayer[];
   deck: SimCard[];
@@ -65,6 +67,7 @@ export type SimGame = {
   active: number;
   phase: SimPhase;
   round: number;
+  turnSerial: number;
   venue: {
     card: SimCard;
     ownerId: number;
@@ -77,7 +80,6 @@ export type SimGame = {
   dei: boolean;
   locks: Record<string, number>;
   finishing: boolean;
-  turnSerial: number;
   events: string[];
   warnings: string[];
   certificateOffer: {
@@ -156,7 +158,9 @@ export type VisibleGame = {
   active: number;
   phase: SimPhase;
   round: number;
+  turnSerial: number;
   venue: SimGame["venue"];
+  certificateOffer: SimGame["certificateOffer"];
   truthOffer: SimGame["truthOffer"];
   confusionOffer: SimGame["confusionOffer"];
   beautyOffer: SimGame["beautyOffer"];
@@ -166,10 +170,14 @@ export type VisibleGame = {
   checkCountPrompt: SimGame["checkCountPrompt"];
   dressCodeOffer: SimGame["dressCodeOffer"];
   forcedPlay: SimGame["forcedPlay"];
+  venueExchange: SimGame["venueExchange"];
+  manzhanOpeningChoice: SimGame["manzhanOpeningChoice"];
+  manzhanPinkPrompt: SimGame["manzhanPinkPrompt"];
   dei: boolean;
   locks: Record<string, number>;
   deckCount: number;
   decisionPlayerId: number;
+  warnings: string[];
 };
 
 export type KnowledgeEvent =
@@ -226,11 +234,25 @@ function makeDeck(random = Math.random) {
   return shuffle(CARD_SPECS.flatMap((spec) => Array.from({ length: spec.count }, (_, index) => ({ ...spec, id: `${spec.name}-${index}-${random().toString(36).slice(2, 8)}` }))), random);
 }
 
-export function createSimGame(names: string[], random = Math.random, ruleOverrides: SimRuleOverrides = {}, sessionMode: "spectate" | "solo" = "spectate"): SimGame {
+function controllerSessionLabel(players: Array<Pick<SimPlayer, "controller">>) {
+  const humans = players.filter((player) => player.controller === "human").length;
+  const ais = players.length - humans;
+  if (humans === 0) return "AI 观战局";
+  return `${humans} 人 + ${ais} AI 对局`;
+}
+
+export function createSimGame(
+  names: string[],
+  random = Math.random,
+  ruleOverrides: SimRuleOverrides = {},
+  sessionMode: "spectate" | "solo" | "online" = "spectate",
+  controllers?: readonly SimController[],
+): SimGame {
   const deck = makeDeck(random);
   const goals = shuffle(GOALS, random);
+  const seatControllers = names.map((_, id): SimController => controllers?.[id] ?? "ai");
   const players = names.map((name, id): SimPlayer => ({
-    id, name: name || `AI ${id + 1}`, goal: goals[id], identity: "male", reading: "male", identityHistory: [{ identity: "male", reading: "male" }], tempIdentity: null, tempIdentityExpiresAfterTurn: null, ambiguityCard: null,
+    id, name: name || `座位 ${id + 1}`, controller: seatControllers[id], goal: goals[id], identity: "male", reading: "male", identityHistory: [{ identity: "male", reading: "male" }], tempIdentity: null, tempIdentityExpiresAfterTurn: null, ambiguityCard: null,
     joy: 2, hand: [deck.shift()!, deck.shift()!], presents: [], removedPresents: [], items: [], scoreSources: [], crushTargetIds: [], skip: 0, turns: 0, whiteEffects: 0, certificateReady: false,
     joyLossVersion: 0, lastJoyLoss: 0,
   }));
@@ -243,7 +265,7 @@ export function createSimGame(names: string[], random = Math.random, ruleOverrid
     },
     players, deck, market: [deck.shift()!, deck.shift()!, deck.shift()!], discard: [], active, phase: "draw", round: 1,
     venue: null, dei: false, locks: {}, finishing: false, turnSerial: 0,
-    events: [`${players[active].name} 随机先手。`, sessionMode === "solo" ? "1 人 + 3 AI 对局开始。" : "AI 观战局开始。"], warnings: [], certificateOffer: null, truthOffer: null, confusionOffer: null, beautyOffer: null, fittingRoomOffer: null, sharedWardrobeOffer: null, forcedPlay: null, venueExchange: null, manzhanOpeningChoice: null, manzhanPinkPrompt: null, readingPrompt: null, checkCountPrompt: null, dressCodeOffer: null,
+    events: [`${players[active].name} 随机先手。`, `${controllerSessionLabel(players)}开始。`], warnings: [], certificateOffer: null, truthOffer: null, confusionOffer: null, beautyOffer: null, fittingRoomOffer: null, sharedWardrobeOffer: null, forcedPlay: null, venueExchange: null, manzhanOpeningChoice: null, manzhanPinkPrompt: null, readingPrompt: null, checkCountPrompt: null, dressCodeOffer: null,
   };
 }
 
@@ -252,30 +274,40 @@ export function visibleStateFor(game: SimGame, observerId: number): VisibleGame 
     rules: game.rules ?? { shopOwnerCap: 3, shopOwnerScoring: "three-four-tier-2-4" },
     players: game.players.map((player) => {
       const { goal, hand, ...publicPlayer } = player;
-      return { ...publicPlayer, handCount: hand.length, ...(player.id === observerId ? { goal } : {}) };
+      return { ...publicPlayer, handCount: hand.length, ...(player.id === observerId || game.phase === "ended" ? { goal } : {}) };
     }),
-    selfHand: game.forcedPlay?.playerId === observerId ? [game.forcedPlay.card] : [...game.players[observerId].hand],
+    // 强制立即打出的牌是额外的待结算牌，不会取代玩家原有手牌。
+    // UI 仍应展示整副手牌，并通过 forcedPlay 单独标出当前唯一可出的牌。
+    selfHand: [...game.players[observerId].hand],
     market: [...game.market],
     discard: [...game.discard],
     active: game.active,
     phase: game.phase,
     round: game.round,
+    turnSerial: game.turnSerial,
     venue: game.venue,
+    certificateOffer: game.certificateOffer?.playerId === observerId ? game.certificateOffer : null,
     truthOffer: game.truthOffer,
     confusionOffer: game.confusionOffer,
-    beautyOffer: game.beautyOffer,
+    beautyOffer: game.beautyOffer
+      ? { ...game.beautyOffer, revealed: observerId === game.beautyOffer.playerId ? game.beautyOffer.revealed : [] }
+      : null,
     fittingRoomOffer: game.fittingRoomOffer
       ? { ...game.fittingRoomOffer, revealed: observerId === game.fittingRoomOffer.actorId ? game.fittingRoomOffer.revealed : [] }
       : null,
     sharedWardrobeOffer: game.sharedWardrobeOffer,
-    readingPrompt: game.readingPrompt,
-    checkCountPrompt: game.checkCountPrompt,
+    readingPrompt: game.readingPrompt?.checks[game.readingPrompt.index]?.playerId === observerId ? game.readingPrompt : null,
+    checkCountPrompt: game.checkCountPrompt?.checks[game.checkCountPrompt.index]?.playerId === observerId ? game.checkCountPrompt : null,
     dressCodeOffer: game.dressCodeOffer,
     forcedPlay: game.forcedPlay,
+    venueExchange: game.venueExchange?.playerIds[game.venueExchange.index] === observerId ? game.venueExchange : null,
+    manzhanOpeningChoice: game.manzhanOpeningChoice?.playerIds[game.manzhanOpeningChoice.index] === observerId ? game.manzhanOpeningChoice : null,
+    manzhanPinkPrompt: game.manzhanPinkPrompt?.playerId === observerId ? game.manzhanPinkPrompt : null,
     dei: game.dei,
     locks: { ...game.locks },
     deckCount: game.deck.length,
     decisionPlayerId: decisionPlayerId(game),
+    warnings: [...game.warnings],
   };
 }
 
@@ -294,6 +326,10 @@ export function decisionPlayerId(game: SimGame) {
     ?? game.manzhanPinkPrompt?.playerId
     ?? game.forcedPlay?.playerId
     ?? game.active;
+}
+
+export function controllerForDecision(game: SimGame): SimController {
+  return game.players[decisionPlayerId(game)].controller;
 }
 
 export function knowledgeEventsFor(before: SimGame, after: SimGame, action: SimAction): KnowledgeEvent[] {
@@ -1110,7 +1146,7 @@ function transferPresent(game: SimGame, source: SimPlayer, target: SimPlayer, ca
   gainPresent(game, card, target.id);
 }
 
-function resolvePlay(game: SimGame, action: SimAction, card: SimCard) {
+function resolvePlay(game: SimGame, action: SimAction, card: SimCard, random = Math.random) {
   const actor = game.players[game.active];
   const target = action.targetId === undefined ? null : game.players[action.targetId];
   if (card.kind === "present" && target) {
@@ -1219,7 +1255,7 @@ function resolvePlay(game: SimGame, action: SimAction, card: SimCard) {
     }
   } else if (card.name === "翻箱倒柜") {
     const returned = game.market.length;
-    game.deck = shuffle([...game.deck, ...game.market]);
+    game.deck = shuffle([...game.deck, ...game.market], random);
     game.market = [];
     game.locks = {};
     refill(game);
@@ -1227,7 +1263,7 @@ function resolvePlay(game: SimGame, action: SimAction, card: SimCard) {
     event(game, `${actor.name} 将 ${returned} 张公共牌洗回暗牌并重抽公共牌列，可以再次拿牌并出牌。`);
   } else if (card.name === "试用代词") {
     const identities: SimIdentity[] = ["male", "female", "nonbinary"];
-    actor.tempIdentity = identities[Math.floor(Math.random() * identities.length)];
+    actor.tempIdentity = identities[Math.floor(random() * identities.length)];
     actor.tempIdentityExpiresAfterTurn = actor.turns + 2;
     gainJoy(game, actor, 1, "试用代词", false);
     const readingNote = actor.tempIdentity === "nonbinary" ? `，二元读取保持为${actor.reading === "male" ? "蓝" : "粉"}` : "";
@@ -1369,7 +1405,7 @@ function advanceTurn(game: SimGame) {
   expireVenueAtEndOfTurn(game, leaving);
   advanceVisualClock(game);
   const equal = game.players.every((player) => player.turns === game.players[0].turns);
-  if (game.finishing && equal) { game.phase = "ended"; event(game, game.sessionMode === "solo" ? "完成当前轮：1 人 + 3 AI 对局结束。" : "完成当前轮：AI 观战局结束。"); return; }
+  if (game.finishing && equal) { game.phase = "ended"; event(game, `完成当前轮：${controllerSessionLabel(game.players)}结束。`); return; }
   let nextId = (game.active + 1) % game.players.length;
   if (nextId === 0) game.round += 1;
   let guard = 0;
@@ -1430,7 +1466,7 @@ function startFulingtaExchange(game: SimGame, actor: SimPlayer, action: SimActio
   return true;
 }
 
-export function applyLegalAction(current: SimGame, action: SimAction): SimGame {
+export function applyLegalAction(current: SimGame, action: SimAction, random = Math.random): SimGame {
   const game = clone(current);
   const legal = enumerateLegalActions(current).some((candidate) => candidate.id === action.id);
   if (!legal) {
@@ -1453,7 +1489,7 @@ export function applyLegalAction(current: SimGame, action: SimAction): SimGame {
     if (prompt.index < prompt.checks.length) return game;
     const pendingAction = { ...prompt.pendingAction, readingChecked: true };
     game.readingPrompt = null;
-    return applyLegalAction(game, pendingAction);
+    return applyLegalAction(game, pendingAction, random);
   }
   if (action.type === "check-count-select") {
     const prompt = game.checkCountPrompt!;
@@ -1466,7 +1502,7 @@ export function applyLegalAction(current: SimGame, action: SimAction): SimGame {
     if (prompt.index < prompt.checks.length) return game;
     const pendingAction = { ...prompt.pendingAction, declaredChecks: { ...prompt.declaredCounts }, checkCountChecked: true };
     game.checkCountPrompt = null;
-    return applyLegalAction(game, pendingAction);
+    return applyLegalAction(game, pendingAction, random);
   }
   if (action.type === "dress-code-preserve" || action.type === "dress-code-discard-all") {
     const offer = game.dressCodeOffer!;
@@ -1792,7 +1828,7 @@ export function applyLegalAction(current: SimGame, action: SimAction): SimGame {
     && actor.crushTargetIds.includes(action.targetId);
   if (forcedCard) game.forcedPlay = null;
   else actor.hand = actor.hand.filter((held) => held.id !== card.id);
-  if (!fizzled) resolvePlay(game, action, card);
+  if (!fizzled) resolvePlay(game, action, card, random);
   if (triggersCrushJoy) grantCrushJoy(game, actor, action.targetId!, card.name);
   if (!fizzled && action.targetId !== undefined) triggerJiraiRetaliation(game, actor, game.players[action.targetId], card.name);
   if (fizzled || (card.kind !== "present" && card.kind !== "venue" && !["开个小证", "学吉他", "自由职业者", "改好证了！", "封心锁爱", "地雷系", "职场 DEI", "扑朔迷离", "先入为主"].includes(card.name))) game.discard.push(card);

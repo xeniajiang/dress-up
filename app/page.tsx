@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, 
 import {
   applyLegalAction,
   compareFinalStanding,
+  controllerForDecision,
   createSimGame,
   decisionPlayerId,
   enbyScoringSmallItems,
@@ -17,10 +18,12 @@ import {
   visibleStateFor,
   type SimAction,
   type SimCard,
+  type SimController,
   type SimGame,
   type SimGoal,
   type SimPlayer,
 } from "../lib/ai-engine";
+import { CARD_PLAY_REVEAL_DURATION_MS } from "../lib/ui-timing";
 import {
   applyKnowledgeEvents,
   chooseHeuristicAction,
@@ -77,8 +80,10 @@ const TUTORIAL_SCORING_CARDS = new Set(["美妆博主", "程序员", "变装皇�
 
 const DEFAULT_AI_NAMES = ["欣娅", "花雨", "晓山", "姬姐"];
 const DEFAULT_SOLO_NAMES = ["欣娅", "花雨", "晓山", "姬姐"];
+const SPECTATE_CONTROLLERS: readonly SimController[] = ["ai", "ai", "ai", "ai"];
+const SOLO_CONTROLLERS: readonly SimController[] = ["human", "ai", "ai", "ai"];
 
-function shortName(name: string) {
+export function shortName(name: string) {
   return name
     .replace("一支商标模糊的", "")
     .replace("家里翻到的古老", "")
@@ -102,7 +107,7 @@ function identityLayerLabel(identity: SimPlayer["identity"], reading: SimPlayer[
   return `⚪ 非二元 · ${reading === "male" ? "蓝" : "粉"}读`;
 }
 
-function IdentityHistoryStack({ player, superseded = false }: { player: SimPlayer; superseded?: boolean }) {
+export function IdentityHistoryStack({ player, superseded = false }: { player: SimPlayer; superseded?: boolean }) {
   const history = identityHistoryFor(player);
   return <div className={`identity-history-stack${superseded ? " is-superseded" : ""}`} aria-label={`长期身份历史：${history.map((layer) => identityLayerLabel(layer.identity, layer.reading).replace(/^[^ ]+ /, "")).join(" → ")}`}>
     {history.map((layer, index) => <span
@@ -175,7 +180,7 @@ const VENUE_BANNER_IMAGES: Record<string, string> = {
   漫展: "/assets/venues/anime-convention-v2.png",
 };
 
-function cardImage(name: string) {
+export function cardImage(name: string) {
   return CARD_IMAGES[name];
 }
 
@@ -183,7 +188,7 @@ function venueCardImage(name: string) {
   return VENUE_CARD_IMAGES[name];
 }
 
-function venueBannerImage(name: string) {
+export function venueBannerImage(name: string) {
   return VENUE_BANNER_IMAGES[name];
 }
 
@@ -192,13 +197,13 @@ function venueCardImagePosition(name: string) {
   return "center";
 }
 
-function cardClass(kind: string, checked?: boolean) {
+export function cardClass(kind: string, checked?: boolean) {
   if (kind === "present") return checked ? "card-pink" : "card-cream";
   if (kind === "venue") return "card-white";
   return "card-ink";
 }
 
-function cardGlyph(name: string) {
+export function cardGlyph(name: string) {
   if (name.includes("长发")) return "〰";
   if (name.includes("口红")) return "💄";
   if (name.includes("美甲")) return "💅";
@@ -230,14 +235,14 @@ function cardGlyph(name: string) {
   return "✦";
 }
 
-function persistentItemHelp(name: string) {
+export function persistentItemHelp(name: string) {
   if (name === "地雷系") return "每当另一名玩家对你使用一张牌时，其失去 1 Joy。";
   if (name === "封心锁爱") return "你不能成为【心动夸夸】的目标。打出时会移除已有心动标记，并使对应发起者各失去 1 Joy。";
   if (name === "自由职业者") return "你不受【职场 Dress Code】和【职场 DEI】影响。";
   return undefined;
 }
 
-function goalCriteria(player: SimPlayer) {
+export function goalCriteria(player: SimPlayer) {
   const checks = simChecks(player);
   const feminine = player.presents.some((card) => card.dress || card.name === "一支商标模糊的口红");
   const has = (name: string) => player.presents.some((card) => card.name === name);
@@ -275,7 +280,7 @@ function goalCriteria(player: SimPlayer) {
   ];
 }
 
-function resultRouteTags(player: SimPlayer, scoredKeys: Set<string>) {
+export function resultRouteTags(player: SimPlayer, scoredKeys: Set<string>) {
   const tags: string[] = [];
   if (player.goal === "文艺男") {
     if (scoredKeys.has("hair")) tags.push("长发");
@@ -291,7 +296,7 @@ function resultRouteTags(player: SimPlayer, scoredKeys: Set<string>) {
   return Array.from(new Set(tags));
 }
 
-function resultStatusTags(player: SimPlayer) {
+export function resultStatusTags(player: SimPlayer) {
   return [
     ...player.items.filter((item) => item === "自由职业者" || item === "改好证了！" || item === "封心锁爱" || item === "地雷系"),
     ...(player.ambiguityCard ? [player.ambiguityCard.name] : []),
@@ -316,9 +321,9 @@ function splitCardCopy(name: string) {
   return { blue: "弃置所有检定呈现", pink: "检定不足 2：−1 Joy" };
 }
 
-type CheckAdjustment = 1 | -1 | "flex";
+export type CheckAdjustment = 1 | -1 | "flex";
 
-function CheckPip({ tone = "pink", className = "" }: { tone?: "pink" | "gray"; className?: string }) {
+export function CheckPip({ tone = "pink", className = "" }: { tone?: "pink" | "gray"; className?: string }) {
   return <i className={`check-pip check-pip-${tone}${className ? ` ${className}` : ""}`} aria-hidden="true">✦</i>;
 }
 
@@ -327,7 +332,7 @@ function checkAdjustmentLabel(adjustment: CheckAdjustment) {
   return `${adjustment > 0 ? "+" : "−"}1 ✦`;
 }
 
-function CheckAdjustmentMark({ adjustment, className = "" }: { adjustment: CheckAdjustment; className?: string }) {
+export function CheckAdjustmentMark({ adjustment, className = "" }: { adjustment: CheckAdjustment; className?: string }) {
   const label = checkAdjustmentLabel(adjustment);
   return <span
     className={`check-adjustment-mark adjustment-${adjustment === "flex" ? "flex" : adjustment > 0 ? "positive" : "negative"}${className ? ` ${className}` : ""}`}
@@ -353,7 +358,7 @@ function ternaryCardCopy(name: string) {
   };
 }
 
-function ambiguityCheckAdjustment(cardName: string, identity: SimPlayer["identity"]): CheckAdjustment {
+export function ambiguityCheckAdjustment(cardName: string, identity: SimPlayer["identity"]): CheckAdjustment {
   if (identity === "nonbinary") return "flex";
   const blueAdjustment = cardName === "扑朔迷离" ? 1 : -1;
   return (identity === "male" ? blueAdjustment : -blueAdjustment) as 1 | -1;
@@ -376,7 +381,7 @@ function venueRuleCopy(name: string) {
   };
 }
 
-function venueEffectCopy(name: string) {
+export function venueEffectCopy(name: string) {
   if (name === "全女空间！") return "蓝读取不能明拿；粉读取新增检定呈现时 +1 Joy";
   if (name === "福灵塔") return "蓝色有检定时可转换长期身份一次；粉 / 白对他人出牌后，自己摸 2 弃 2，对方摸 1 弃 1";
   return "蓝色对自己打检定呈现后重新拿牌并可继续连锁；粉色每回合限一次，移动场上呈现并使自己与原持有者各 +1 Joy";
@@ -491,7 +496,7 @@ function CardArtworkFace({ card }: { card: SimCard }) {
   </div>;
 }
 
-function CardFace({ card }: { card: SimCard }) {
+export function CardFace({ card }: { card: SimCard }) {
   const [showEffect, setShowEffect] = useState(false);
   const [touchStartX, setTouchStartX] = useState<number | null>(null);
   const hoverTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -607,7 +612,7 @@ function CardFace({ card }: { card: SimCard }) {
   );
 }
 
-function DecisionOverlay({
+export function DecisionOverlay({
   minimized,
   onMinimizedChange,
   ariaLabel,
@@ -644,7 +649,7 @@ function TutorialIntro({ onContinue, onSkip }: { onContinue: () => void; onSkip:
   </div>;
 }
 
-function GoalGuide({ onboarding, targetAnchor, onClose }: { onboarding: boolean; targetAnchor: { x: number; y: number } | null; onClose: () => void }) {
+export function GoalGuide({ onboarding, targetAnchor, onClose }: { onboarding: boolean; targetAnchor: { x: number; y: number } | null; onClose: () => void }) {
   const [closing, setClosing] = useState(false);
   const [showScores, setShowScores] = useState(false);
   const fromTargetCard = Boolean(targetAnchor);
@@ -700,8 +705,8 @@ function TutorialCoachmark({ tip, cardName, onDismiss, onSkipAll }: { tip: Tutor
   </aside>;
 }
 
-function GameTable({ mode, names, onExit, startTutorial = false }: { mode: Mode; names: string[]; onExit: () => void; startTutorial?: boolean }) {
-  const [game, setGame] = useState<SimGame>(() => createSimGame(names, Math.random, {}, mode));
+function GameTable({ mode, names, controllers, viewerPlayerId, onExit, startTutorial = false }: { mode: Mode; names: string[]; controllers: readonly SimController[]; viewerPlayerId: number | null; onExit: () => void; startTutorial?: boolean }) {
+  const [game, setGame] = useState<SimGame>(() => createSimGame(names, Math.random, {}, mode, controllers));
   const [memories, setMemories] = useState<AiMemory[]>(() => createAiMemories(4));
   // 单人局始终保持自动推进开启；教学、玩家决策和牌效窗口只临时阻止调度。
   // 不再用 running 表示这些瞬时阻塞，避免场地追加决策与教学关闭之间产生恢复竞态。
@@ -841,9 +846,12 @@ function GameTable({ mode, names, onExit, startTutorial = false }: { mode: Mode;
     };
   }, [game.phase]);
 
+  const viewerSeatId = viewerPlayerId ?? 0;
   const decisionOwnerId = decisionPlayerId(game);
-  const isHumanDecision = mode === "solo" && decisionOwnerId === 0;
-  const isHumanBeautyOffer = mode === "solo" && game.beautyOffer?.playerId === 0;
+  const decisionController = controllerForDecision(game);
+  const shouldWaitForHuman = decisionController === "human";
+  const isHumanDecision = shouldWaitForHuman && decisionOwnerId === viewerPlayerId;
+  const isHumanBeautyOffer = isHumanDecision && game.beautyOffer?.playerId === viewerPlayerId;
   const legalActions = useMemo(() => enumerateLegalActions(game), [game]);
 
   const performAction = useCallback((forced?: SimAction) => {
@@ -852,8 +860,10 @@ function GameTable({ mode, names, onExit, startTutorial = false }: { mode: Mode;
     setGame((before) => {
       if (before.phase === "ended") return before;
       const actorId = decisionPlayerId(before);
+      const actorController = controllerForDecision(before);
       const actions = enumerateLegalActions(before);
       if (!actions.length) return before;
+      if (!forced && actorController === "human") return before;
       const beforeView = visibleStateFor(before, actorId);
       const decision = forced ? null : chooseHeuristicAction(beforeView, actions, memories[actorId]);
       const chosen = forced ?? decision!.chosen;
@@ -863,7 +873,8 @@ function GameTable({ mode, names, onExit, startTutorial = false }: { mode: Mode;
           : before.players[actorId].hand.find((card) => card.id === chosen.cardId)
         : undefined;
       const pronounCardName = playedCard?.name === "她" || playedCard?.name === "他" ? playedCard.name : null;
-      if (mode === "solo" && chosen.targetId === 0 && pronounCardName && !chosen.pronounResponse) {
+      const pronounTarget = chosen.targetId === undefined ? null : before.players[chosen.targetId];
+      if (pronounTarget?.id === viewerPlayerId && pronounTarget.controller === "human" && pronounCardName && !chosen.pronounResponse) {
         setPendingPronoun({ action: chosen, actorId, cardName: pronounCardName });
         return before;
       }
@@ -871,8 +882,10 @@ function GameTable({ mode, names, onExit, startTutorial = false }: { mode: Mode;
       if (chosen.type === "fitting-room-fizzle" && before.fittingRoomOffer) {
         setFittingRoomNotice({ actorId: before.fittingRoomOffer.actorId, version: Date.now() });
       }
-      if (playedCard && (mode === "spectate" || actorId !== 0)) {
-        const duration = mode === "spectate" ? Math.max(120, Math.min(1050, Math.round(speed * .8))) : 1050;
+      if (playedCard && actorId !== viewerPlayerId) {
+        const duration = mode === "spectate"
+          ? Math.max(120, Math.min(CARD_PLAY_REVEAL_DURATION_MS, Math.round(speed * .8)))
+          : CARD_PLAY_REVEAL_DURATION_MS;
         const isPlayerDestination = playedCard.kind === "present"
           || ["她", "他", "扑朔迷离", "先入为主", "学吉他", "开个小证"].includes(playedCard.name);
         const destinationPlayerId = playedCard.name === "学吉他" || playedCard.name === "开个小证"
@@ -894,11 +907,11 @@ function GameTable({ mode, names, onExit, startTutorial = false }: { mode: Mode;
         setLastPlayAnimationDuration(0);
       }
       if (playedCard?.name === "换一种活法" && !chosen.fizzle && chosen.targetId !== undefined) {
-        const humanInvolved = actorId === 0 || chosen.targetId === 0;
+        const humanInvolved = viewerPlayerId !== null && (actorId === viewerPlayerId || chosen.targetId === viewerPlayerId);
         setGoalSwapTransition({
           actorId,
           targetId: chosen.targetId,
-          ...(humanInvolved ? { humanGoal: after.players[0].goal } : {}),
+          ...(humanInvolved ? { humanGoal: after.players[viewerPlayerId!].goal } : {}),
           duration: mode === "spectate" ? Math.max(180, Math.min(2200, Math.round(speed * 1.25))) : 2200,
           version: Date.now(),
         });
@@ -913,13 +926,13 @@ function GameTable({ mode, names, onExit, startTutorial = false }: { mode: Mode;
       updated = applyKnowledgeEvents(updated, knowledgeEvents);
       setMemories(updated);
       const reveal = knowledgeEvents.find((item) => item.type === "reveal");
-      if (reveal?.type === "reveal" && (mode === "spectate" || reveal.observerId === 0)) {
+      if (reveal?.type === "reveal" && (viewerPlayerId === null || reveal.observerId === viewerPlayerId)) {
         setTruthReveal({ ...reveal, version: Date.now() });
       }
       setStepCount((count) => count + 1);
       return after;
     });
-  }, [memories, mode, speed]);
+  }, [memories, mode, speed, viewerPlayerId]);
 
   useEffect(() => {
     if (!truthReveal) return;
@@ -936,11 +949,11 @@ function GameTable({ mode, names, onExit, startTutorial = false }: { mode: Mode;
   useEffect(() => {
     if (!playedCardTransition) return;
     const timer = window.setTimeout(() => {
-      if (mode === "solo" && tutorialEnabled && playedCardTransition.actorId !== 0) setTutorialObservedCard(playedCardTransition.card);
+      if (mode === "solo" && tutorialEnabled && playedCardTransition.actorId !== viewerPlayerId) setTutorialObservedCard(playedCardTransition.card);
       setPlayedCardTransition(null);
     }, playedCardTransition.duration);
     return () => window.clearTimeout(timer);
-  }, [mode, playedCardTransition, tutorialEnabled]);
+  }, [mode, playedCardTransition, tutorialEnabled, viewerPlayerId]);
 
   useEffect(() => {
     if (!fittingRoomNotice) return;
@@ -949,7 +962,7 @@ function GameTable({ mode, names, onExit, startTutorial = false }: { mode: Mode;
   }, [fittingRoomNotice]);
 
   const restart = () => {
-    setGame(createSimGame(names, Math.random, {}, mode));
+    setGame(createSimGame(names, Math.random, {}, mode, controllers));
     setMemories(createAiMemories(4));
     setStepCount(0);
     setRunning(true);
@@ -1019,11 +1032,11 @@ function GameTable({ mode, names, onExit, startTutorial = false }: { mode: Mode;
     : legalActions.filter((action) => action.type === "venue-manzhan-use" || action.type === "venue-manzhan-pass");
   const manzhanMoveActions = legalActions.filter((action) => action.type === "venue-manzhan-move");
   const playActions = legalActions.filter((action) => action.type === "play");
-  const forcedHumanCard = game.forcedPlay?.playerId === 0 ? game.forcedPlay.card : null;
+  const forcedHumanCard = game.forcedPlay?.playerId === viewerPlayerId ? game.forcedPlay.card : null;
   const effectiveSelectedCardId = isHumanDecision && forcedHumanCard ? forcedHumanCard.id : selectedCardId;
   const selectedCardPlayActions = playActions.filter((action) => action.cardId === effectiveSelectedCardId);
   const selectedPlayActions = selectedCardPlayActions;
-  const selectedHandCard = forcedHumanCard ?? game.players[0].hand.find((card) => card.id === effectiveSelectedCardId);
+  const selectedHandCard = forcedHumanCard ?? game.players[viewerSeatId].hand.find((card) => card.id === effectiveSelectedCardId);
   const sharedWardrobeDragMode = isHumanDecision && selectedHandCard?.name === "共享衣橱";
   const sharedWardrobeResponseMode = isHumanDecision && game.sharedWardrobeOffer?.stage === "target-select";
   const sharedWardrobeActorChoiceMode = isHumanDecision && game.sharedWardrobeOffer?.stage === "actor-choice";
@@ -1037,7 +1050,7 @@ function GameTable({ mode, names, onExit, startTutorial = false }: { mode: Mode;
       : [];
   const boardMoveMode = boardMoveActions.length > 0;
   const rankings = useMemo(() => [...game.players].sort(compareFinalStanding), [game.players]);
-  const humanPlayer = game.players[0];
+  const humanPlayer = game.players[viewerSeatId];
   const humanCriteria = goalCriteria(humanPlayer);
   const humanIdentity = humanPlayer.tempIdentity ?? humanPlayer.identity;
   const humanReading = humanIdentity === "nonbinary" ? humanPlayer.reading : humanIdentity;
@@ -1067,7 +1080,7 @@ function GameTable({ mode, names, onExit, startTutorial = false }: { mode: Mode;
     if (!tutorialHistoryLoaded || !tutorialEnabled || tutorialIntroOpen || goalGuideOpen || ruleOpen || mode !== "solo" || game.phase === "ended") return null;
     let desired: TutorialTipId | null = null;
     const seen = (tip: TutorialTipId) => Boolean(tutorialSeen[tip] || tutorialConfirmedRef.current.has(tip));
-    const readingNeedsHuman = Boolean(readingCheck && readingPlayer?.id === 0);
+    const readingNeedsHuman = Boolean(readingCheck && readingPlayer?.id === viewerPlayerId && readingPlayer.controller === "human");
     const hasResponseChoice = Boolean(
       pendingPronoun
       || (game.certificateOffer && isHumanDecision)
@@ -1102,7 +1115,7 @@ function GameTable({ mode, names, onExit, startTutorial = false }: { mode: Mode;
     }
 
     return desired;
-  }, [game, goalGuideOpen, humanHasDistinctTempIdentity, humanIdentity, isHumanDecision, mode, pendingPronoun, readingCheck, readingPlayer?.id, ruleOpen, selectedHandCard, selectedPlayActions, tutorialEnabled, tutorialHistoryLoaded, tutorialIntroOpen, tutorialObservedCard, tutorialSeen]);
+  }, [game, goalGuideOpen, humanHasDistinctTempIdentity, humanIdentity, isHumanDecision, mode, pendingPronoun, readingCheck, readingPlayer?.controller, readingPlayer?.id, ruleOpen, selectedHandCard, selectedPlayActions, tutorialEnabled, tutorialHistoryLoaded, tutorialIntroOpen, tutorialObservedCard, tutorialSeen, viewerPlayerId]);
 
   const tutorialContextCard = (isHumanDecision ? selectedHandCard : null) ?? tutorialObservedCard;
   const cardDrivenTip = rawTutorialTip && !["reading", "response", "temporary", "nonbinary", "draw", "play", "endgame"].includes(rawTutorialTip);
@@ -1130,12 +1143,12 @@ function GameTable({ mode, names, onExit, startTutorial = false }: { mode: Mode;
   }, [markTutorialSeen, tutorialContextKey, tutorialTip]);
 
   useEffect(() => {
-    if (!running || tutorialIntroOpen || goalGuideOpen || ruleOpen || tutorialTip || game.phase === "ended" || isHumanDecision || isHumanBeautyOffer || pendingPronoun || goalSwapTransition || playedCardTransition || fittingRoomNotice || stepCount > 360) return;
+    if (!running || tutorialIntroOpen || goalGuideOpen || ruleOpen || tutorialTip || game.phase === "ended" || shouldWaitForHuman || pendingPronoun || goalSwapTransition || playedCardTransition || fittingRoomNotice || stepCount > 360) return;
     const showingSelectedFittingRoomCards = game.fittingRoomOffer?.stage === "allocate";
     const delay = showingSelectedFittingRoomCards ? Math.max(900, speed) : Math.max(30, speed - lastPlayAnimationDuration);
     const timer = window.setTimeout(() => performAction(), delay);
     return () => window.clearTimeout(timer);
-  }, [fittingRoomNotice, game, goalGuideOpen, goalSwapTransition, isHumanBeautyOffer, isHumanDecision, lastPlayAnimationDuration, pendingPronoun, performAction, playedCardTransition, ruleOpen, running, speed, stepCount, tutorialIntroOpen, tutorialTip]);
+  }, [fittingRoomNotice, game, goalGuideOpen, goalSwapTransition, lastPlayAnimationDuration, pendingPronoun, performAction, playedCardTransition, ruleOpen, running, shouldWaitForHuman, speed, stepCount, tutorialIntroOpen, tutorialTip]);
 
   const selectHandCard = (cardId: string) => {
     if (!isHumanDecision || game.phase !== "play") return;
@@ -1395,7 +1408,7 @@ function GameTable({ mode, names, onExit, startTutorial = false }: { mode: Mode;
             const legalDropAction = moveActionToPlayer(player.id);
             const crushGivers = game.players.filter((giver) => giver.crushTargetIds.includes(player.id));
             return <article
-              className={`player-zone player-${player.id} identity-${permanentIdentity} ${player.tempIdentity ? "has-temp-identity" : ""} ${player.id === game.active ? "current-player" : ""} ${legalDropAction ? "is-legal-drop" : ""} ${dragOverTargetId === player.id ? "is-drag-over" : ""}`}
+              className={`player-zone player-${player.id} ${player.id === viewerPlayerId ? "viewer-player" : ""} identity-${permanentIdentity} ${player.tempIdentity ? "has-temp-identity" : ""} ${player.id === game.active ? "current-player" : ""} ${legalDropAction ? "is-legal-drop" : ""} ${dragOverTargetId === player.id ? "is-drag-over" : ""}`}
               key={player.id}
             >
               <div className="player-core">
@@ -1429,7 +1442,7 @@ function GameTable({ mode, names, onExit, startTutorial = false }: { mode: Mode;
                 </div>}
               </div>
 
-              {!(mode === "solo" && player.id === 0) && (mode === "spectate"
+              {player.id !== viewerPlayerId && (mode === "spectate"
                 ? <button type="button" className="hand-fan hand-inspect-trigger" aria-label={`查看 ${player.name} 的 ${player.hand.length} 张手牌`} aria-expanded={inspectedHandPlayerId === player.id} onClick={() => setInspectedHandPlayerId((current) => current === player.id ? null : player.id)}><i /><i /><b>{player.hand.length}</b></button>
                 : <div className="hand-fan" aria-label={`${player.name}有${player.hand.length}张手牌`}><i /><i /><b>{player.hand.length}</b></div>)}
 
@@ -1439,8 +1452,8 @@ function GameTable({ mode, names, onExit, startTutorial = false }: { mode: Mode;
                 </div>
               </div>}
 
-              {!(mode === "solo" && player.id === 0) && (() => {
-                const knownGoal = mode === "solo" ? memories[0].knownTargets[player.id] : undefined;
+              {player.id !== viewerPlayerId && (() => {
+                const knownGoal = viewerPlayerId !== null ? memories[viewerSeatId].knownTargets[player.id] : undefined;
                 return <div className={`goal-object ${knownGoal ? "known-goal" : "face-down"}`} title={knownGoal ? `已知目标：${knownGoal}` : "目标牌背面"}>{knownGoal ?? "?"}</div>;
               })()}
 
@@ -1664,7 +1677,7 @@ function GameTable({ mode, names, onExit, startTutorial = false }: { mode: Mode;
           <p>你可以接受这张牌的二元身份；或支付 1 Joy，成为非二元，并把二元读取设为对应方向。</p>
           <div className="identity-choice-options">
             <button className={pendingPronoun.cardName === "她" ? "accept-female" : "accept-male"} onClick={() => answerPronoun("accept-binary")}><span>接受【{pendingPronoun.cardName}】</span><b>变为{pendingPronoun.cardName === "她" ? "女性" : "男性"}</b></button>
-            <button className="stay-nonbinary" onClick={() => answerPronoun("pay-nonbinary")} disabled={game.players[0].joy < 1}><span>支付 1 Joy</span><b>{game.players[0].joy < 1 ? "Joy 不足" : `非二元 / ${pendingPronoun.cardName === "她" ? "粉" : "蓝"}读取`}</b></button>
+            <button className="stay-nonbinary" onClick={() => answerPronoun("pay-nonbinary")} disabled={humanPlayer.joy < 1}><span>支付 1 Joy</span><b>{humanPlayer.joy < 1 ? "Joy 不足" : `非二元 / ${pendingPronoun.cardName === "她" ? "粉" : "蓝"}读取`}</b></button>
           </div>
         </section>
       </DecisionOverlay>}
@@ -1813,6 +1826,9 @@ export default function Home() {
   const [started, setStarted] = useState(false);
   const [humanName, setHumanName] = useState("");
   const [startTutorial, setStartTutorial] = useState(false);
+  const [roomCode, setRoomCode] = useState("");
+  const [creatingRoom, setCreatingRoom] = useState(false);
+  const [roomError, setRoomError] = useState("");
 
   const launchGame = () => {
     let shouldStartTutorial = false;
@@ -1823,9 +1839,30 @@ export default function Home() {
     setStarted(true);
   };
 
+  const createRoom = async () => {
+    setCreatingRoom(true);
+    setRoomError("");
+    try {
+      const response = await fetch("/api/rooms", { method: "POST" });
+      if (!response.ok) throw new Error("暂时无法创建房间。");
+      const result = await response.json() as { roomId: string };
+      window.location.assign(`/room/${result.roomId}`);
+    } catch (error) {
+      setRoomError(error instanceof Error ? error.message : "暂时无法创建房间。");
+      setCreatingRoom(false);
+    }
+  };
+
+  const joinRoom = () => {
+    const normalized = roomCode.toUpperCase().replace(/[^A-HJ-NP-Z2-9]/g, "").slice(0, 5);
+    if (normalized.length !== 5) { setRoomError("请输入 5 位房间码。"); return; }
+    window.location.assign(`/room/${normalized}`);
+  };
+
   if (started) {
     const names = mode === "spectate" ? DEFAULT_AI_NAMES : [humanName.trim() || "欣娅", ...DEFAULT_SOLO_NAMES.slice(1)];
-    return <GameTable mode={mode} names={names} startTutorial={startTutorial} onExit={() => setStarted(false)} />;
+    const controllers = mode === "spectate" ? SPECTATE_CONTROLLERS : SOLO_CONTROLLERS;
+    return <GameTable mode={mode} names={names} controllers={controllers} viewerPlayerId={mode === "solo" ? 0 : null} startTutorial={startTutorial} onExit={() => setStarted(false)} />;
   }
 
   return (
@@ -1841,6 +1878,12 @@ export default function Home() {
         <div className="mode-tabs"><button className={mode === "spectate" ? "selected" : ""} onClick={() => setMode("spectate")}><span><b>4 AI 观战</b><small>看四个 AI 自己玩完一局。</small></span></button><button className={mode === "solo" ? "selected" : ""} onClick={() => setMode("solo")}><span><b>1 人 + 3 AI</b><small>你来出牌，其余玩家自动行动。</small></span></button></div>
         {mode === "solo" && <label className="human-name"><span>你的名字</span><input value={humanName} placeholder="欣娅" maxLength={10} onChange={(event) => setHumanName(event.target.value)} /></label>}
         <button className="launch-button" onClick={launchGame}><span>{mode === "spectate" ? "开始观战" : "开始游戏"}</span><b>→</b></button>
+        <div className="online-entry">
+          <h3>联机游戏</h3>
+          <button type="button" className="create-room-button" onClick={createRoom} disabled={creatingRoom}>{creatingRoom ? "正在开桌…" : "创建房间"}</button>
+          <div className="room-code-entry"><label><span>房间码</span><input value={roomCode} maxLength={5} placeholder="_ _ _ _ _" autoCapitalize="characters" onChange={(event) => setRoomCode(event.target.value.toUpperCase().replace(/[^A-HJ-NP-Z2-9]/g, "").slice(0, 5))} onKeyDown={(event) => { if (event.key === "Enter") joinRoom(); }} /></label><button type="button" onClick={joinRoom}>加入</button></div>
+          {roomError && <p className="room-entry-error">{roomError}</p>}
+        </div>
       </section>
       <div className="landing-props" aria-hidden="true"><div className="prop-card prop-one" /><div className="prop-card prop-three" /></div>
     </main>

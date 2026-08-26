@@ -3,6 +3,7 @@ import test from "node:test";
 import {
   applyLegalAction,
   compareFinalStanding,
+  controllerForDecision,
   createSimGame,
   decisionPlayerId,
   enbyScoringSmallItems,
@@ -57,9 +58,10 @@ test("heuristic AI completes 40 games without illegal states or loops", () => {
 });
 
 test("真人局记录使用正确开场文案与玩家名，Joy 变化写入记录", () => {
-  const solo = createSimGame(["欣娅", "花雨", "晓山", "姬姐"], Math.random, {}, "solo");
+  const solo = createSimGame(["欣娅", "花雨", "晓山", "姬姐"], Math.random, {}, "solo", ["human", "ai", "ai", "ai"]);
   assert.ok(solo.events.includes("1 人 + 3 AI 对局开始。"));
   assert.ok(!solo.events.includes("AI 观战局开始。"));
+  assert.deepEqual(solo.players.map((player) => player.controller), ["human", "ai", "ai", "ai"]);
 
   solo.active = 0;
   solo.phase = "play";
@@ -68,6 +70,26 @@ test("真人局记录使用正确开场文案与玩家名，Joy 变化写入记�
   const action = enumerateLegalActions(solo).find((candidate) => candidate.cardId === "programmer-log")!;
   const after = applyLegalAction(solo, action);
   assert.ok(after.events.some((entry) => entry === "欣娅 因【程序员】获得 2 Joy。"));
+});
+
+test("controller 独立属于座位，非零号真人会接管其所有决策", () => {
+  const controllers = ["ai", "ai", "human", "ai"] as const;
+  const game = createSimGame(["A", "B", "真人C", "D"], () => 0.42, {}, "solo", controllers);
+
+  assert.deepEqual(game.players.map((player) => player.controller), controllers);
+
+  game.active = 2;
+  game.phase = "draw";
+  assert.equal(decisionPlayerId(game), 2);
+  assert.equal(controllerForDecision(game), "human");
+
+  game.truthOffer = { actorId: 1, targetId: 2, resumeAfter: "none" };
+  assert.equal(decisionPlayerId(game), 2, "响应决策仍应归目标座位");
+  assert.equal(controllerForDecision(game), "human", "响应阶段不应按座位编号误调用 AI");
+
+  game.truthOffer = { actorId: 2, targetId: 3, resumeAfter: "none" };
+  assert.equal(decisionPlayerId(game), 3);
+  assert.equal(controllerForDecision(game), "ai");
 });
 
 test("真人玩家可接受二元身份，或支付 Joy 保持非二元", () => {
