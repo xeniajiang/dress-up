@@ -187,6 +187,7 @@ const CARD_SPECS: Array<Omit<SimCard, "id"> & { count: number }> = [
   { name: "共享衣橱", count: 1, kind: "action" }, { name: "翻箱倒柜", count: 1, kind: "action" },
   { name: "心动夸夸", count: 2, kind: "action" },
   { name: "封心锁爱", count: 1, kind: "action" },
+  { name: "不支持不反对", count: 1, kind: "action" },
   { name: "地雷系", count: 1, kind: "action" },
   { name: "打烊", count: 2, kind: "action" }, { name: "爱美之心", count: 2, kind: "action" },
   { name: "闺蜜试衣间", count: 2, kind: "action" },
@@ -898,6 +899,13 @@ function grantCrushJoy(game: SimGame, actor: SimPlayer, targetId: number, cardNa
   return true;
 }
 
+function isHeterosexualCrushPair(a: SimPlayer, b: SimPlayer) {
+  const aIdentity = a.tempIdentity ?? a.identity;
+  const bIdentity = b.tempIdentity ?? b.identity;
+  return (aIdentity === "male" && bIdentity === "female")
+    || (aIdentity === "female" && bIdentity === "male");
+}
+
 function recordFirstWhiteEffect(game: SimGame, player: SimPlayer, sourceName: string) {
   if (player.whiteEffects > 0) return;
   player.whiteEffects = 1;
@@ -1116,9 +1124,11 @@ function resolvePlay(game: SimGame, action: SimAction, card: SimCard) {
       return;
     }
     if (!actor.crushTargetIds.includes(target.id)) actor.crushTargetIds.push(target.id);
+    actor.joy += 1;
+    recordScoreSource(actor, card.name, 1);
     target.joy += 1;
     recordScoreSource(target, card.name, 1);
-    event(game, `${target.name} 获得 1 Joy，并获得一枚来自 ${actor.name} 的心动标记。`);
+    event(game, `${actor.name} 与 ${target.name} 各获得 1 Joy；${target.name} 获得一枚来自 ${actor.name} 的心动标记。`);
   } else if (card.name === "封心锁爱") {
     actor.items.push("封心锁爱");
     const givers = game.players.filter((player) => player.crushTargetIds.includes(actor.id));
@@ -1128,10 +1138,27 @@ function resolvePlay(game: SimGame, action: SimAction, card: SimCard) {
       givers.forEach((giver) => {
         giver.crushTargetIds = giver.crushTargetIds.filter((targetId) => targetId !== actor.id);
         const joyBefore = giver.joy;
-        loseJoy(giver, 2);
+        loseJoy(giver, 1);
         event(game, `${actor.name} 弃置了来自 ${giver.name} 的心动标记；${giver.name} 失去 ${joyBefore - giver.joy} Joy。`);
       });
     }
+  } else if (card.name === "不支持不反对") {
+    let removed = 0;
+    const affectedPlayerIds = new Set<number>();
+    game.players.forEach((giver) => {
+      const retained = giver.crushTargetIds.filter((targetId) => {
+        const conforms = isHeterosexualCrushPair(giver, game.players[targetId]);
+        if (!conforms) {
+          removed += 1;
+          affectedPlayerIds.add(giver.id);
+          affectedPlayerIds.add(targetId);
+        }
+        return conforms;
+      });
+      giver.crushTargetIds = retained;
+    });
+    affectedPlayerIds.forEach((playerId) => loseJoy(game.players[playerId]));
+    event(game, `${actor.name} 打出【不支持不反对】，移除了 ${removed} 枚未连接一名男性与一名女性的心动标记；关系双方共 ${affectedPlayerIds.size} 名玩家各失去 1 Joy（每人至多 1 Joy）。`);
   } else if (card.name === "地雷系") {
     actor.items.push("地雷系");
     event(game, `${actor.name} 打出【地雷系】；此后其他玩家每次对其使用一张牌，都会失去 1 Joy。`);

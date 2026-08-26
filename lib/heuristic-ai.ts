@@ -674,9 +674,9 @@ function scoreAction(view: VisibleGame, action: SimAction, memory: AiMemory, ran
       if (card.name === "心动夸夸" && target) {
         const reusableTargetedCards = view.selfHand.filter((held) => held.id !== card.id && (held.kind === "present" || ["她", "他", "理发", "卸甲", "迷茫", "老男人看了你一眼", "你pass吗？"].includes(held.name))).length;
         const alreadyMarked = self.crushTargetIds.includes(target.id);
-        selfValue += 0.45 + Math.min(1.2, reusableTargetedCards * 0.3) + targetThreat(view, memory, target.id) * 0.12 + (alreadyMarked ? -0.15 : 0.3);
+        selfValue += 1.45 + Math.min(1.2, reusableTargetedCards * 0.3) + targetThreat(view, memory, target.id) * 0.12 + (alreadyMarked ? -0.15 : 0.3);
         blockingValue -= target.joy <= 1 ? 1.15 : 0.75;
-        reasons.push(alreadyMarked ? "重复夸夸仍给予 Joy，但不会增加新的心动对象" : "新增一个可在后续互动中获得 Joy 的心动对象");
+        reasons.push(alreadyMarked ? "双方各获得 1 Joy；重复夸夸不会增加新的心动对象" : "双方各获得 1 Joy，并新增一个可在后续互动中获得 Joy 的心动对象");
       }
       const identityActionName = card.name === "她" || card.name === "他" ? card.name : undefined;
       if (identityActionName && target) {
@@ -788,12 +788,38 @@ function scoreAction(view: VisibleGame, action: SimAction, memory: AiMemory, ran
       }
       if (card.name === "封心锁爱") {
         const givers = view.players.filter((player) => player.crushTargetIds.includes(self.id));
-        const reflectedLoss = givers.reduce((sum, giver) => sum + Math.min(2, giver.joy), 0);
+        const reflectedLoss = givers.reduce((sum, giver) => sum + Math.min(1, giver.joy), 0);
         selfValue += givers.length > 0 ? 2.1 : 1.15;
         blockingValue += reflectedLoss * 0.8;
         reasons.push(givers.length > 0
           ? `清除 ${givers.length} 枚心动标记并反噬发起者，共使其失去 ${reflectedLoss} Joy`
           : "提前获得心动标记免疫");
+      }
+      if (card.name === "不支持不反对") {
+        const currentIdentity = (player: VisiblePlayer) => player.tempIdentity ?? player.identity;
+        const conforms = (giver: VisiblePlayer, target: VisiblePlayer) => {
+          const giverIdentity = currentIdentity(giver);
+          const targetIdentity = currentIdentity(target);
+          return (giverIdentity === "male" && targetIdentity === "female")
+            || (giverIdentity === "female" && targetIdentity === "male");
+        };
+        let ownRemoved = 0;
+        let opponentRemoved = 0;
+        const affectedPlayerIds = new Set<number>();
+        view.players.forEach((giver) => giver.crushTargetIds.forEach((targetId) => {
+          if (conforms(giver, view.players[targetId])) return;
+          affectedPlayerIds.add(giver.id);
+          affectedPlayerIds.add(targetId);
+          if (giver.id === self.id) ownRemoved += 1;
+          else opponentRemoved += 1;
+        }));
+        const selfLosesJoy = affectedPlayerIds.has(self.id);
+        const opponentsLosingJoy = [...affectedPlayerIds].filter((playerId) => playerId !== self.id).length;
+        selfValue -= ownRemoved * 1.5;
+        selfValue -= selfLosesJoy ? (self.joy <= 1 ? 2.5 : 1.4) : 0;
+        blockingValue += opponentRemoved * 1.35 + opponentsLosingJoy * 0.85;
+        if (ownRemoved === 0 && opponentRemoved === 0) selfValue -= 0.8;
+        reasons.push(`将移除自己的 ${ownRemoved} 枚、对手的 ${opponentRemoved} 枚非异性恋心动标记，并让关系双方共 ${affectedPlayerIds.size} 人各失去 1 Joy`);
       }
       if (card.name === "地雷系") {
         selfValue += 1.45 + targetThreat(view, memory, self.id) * 0.12;

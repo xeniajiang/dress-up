@@ -310,7 +310,7 @@ for (let run = 0; run < GAMES; run += 1) {
       }
       if (card.name === "封心锁爱") {
         relationshipStats.shieldPlays += 1;
-        const incoming = before.players.filter((player) => player.crushTargetId === cardActorId);
+        const incoming = before.players.filter((player) => player.crushTargetIds.includes(cardActorId));
         if (incoming.length > 0) relationshipStats.shieldTriggeredPlays += 1;
         relationshipStats.shieldMarkersRemoved += incoming.length;
         relationshipStats.shieldJoyLossInflicted += incoming.reduce((sum, giver) => sum + Math.min(2, giver.joy), 0);
@@ -407,7 +407,7 @@ for (let run = 0; run < GAMES; run += 1) {
   });
   totalDecisions += decisions;
   totalRounds += game.round;
-  relationshipStats.activeMarkersAtEnd += game.players.filter((player) => player.crushTargetId !== null).length;
+  relationshipStats.activeMarkersAtEnd += game.players.reduce((sum, player) => sum + player.crushTargetIds.length, 0);
   relationshipStats.shieldHoldersAtEnd += game.players.filter((player) => player.items.includes("封心锁爱")).length;
 }
 

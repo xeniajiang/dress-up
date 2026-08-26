@@ -101,6 +101,7 @@ const CARD_IMAGES: Record<string, string> = {
   "你pass吗？": "/assets/actions/pass-question.png",
   心动夸夸: "/assets/actions/crush-compliment-badge.png",
   封心锁爱: "/assets/actions/closed-heart-keepsake-box.png",
+  不支持不反对: "/assets/actions/neutral-opposition.png",
   地雷系: "/assets/actions/jirai-kei-outfit.png",
   迷茫: "/assets/actions/confusion-path.png",
   身份肯定: "/assets/actions/temporary-identity-fixed.png",
@@ -183,6 +184,7 @@ function cardGlyph(name: string) {
   if (name.includes("全女空间")) return "♀";
   if (name === "心动夸夸") return "♥";
   if (name === "封心锁爱") return "锁";
+  if (name === "不支持不反对") return "不";
   if (name === "地雷系") return "雷";
   if (name === "detrans") return "↶";
   if (name === "先入为主") return "◉";
@@ -348,8 +350,9 @@ function cardEffectCopy(name: string) {
     共享衣橱: "选择一名其他玩家，将其呈现区内一张呈现牌移至你的呈现区。然后，其可以选择你呈现区内另一张呈现牌。你选择：将该牌移至其呈现区；或失去 2 Joy。",
     闺蜜试衣间: "查看公共牌列与牌堆顶 3 张，从中选择 2 张呈现及另一名玩家；也可以直接选择【没买到衣服】。对方分给双方各 1 张并立即打出；未选顶牌按原顺序放回牌堆顶。",
     翻箱倒柜: "将公共牌列洗回暗牌并重新翻出三张；然后再次暗摸或明拿，并正常出一张牌。",
-    心动夸夸: "目标获得 1 Joy，并获得一枚来自你的心动标记。每名玩家至多拥有一枚来自同一玩家的心动标记。此后，每当你对拥有你的心动标记的玩家使用一张牌时，你获得 1 Joy。",
-    封心锁爱: "将此牌留在你面前。你不能成为【心动夸夸】的目标。若你已有心动标记，弃置这些标记，并使每枚标记的发起者失去 2 Joy。",
+    心动夸夸: "选择一名其他玩家，你与其各获得 1 Joy。其获得一枚来自你的心动标记。此后，每当你对其使用一张牌时，你获得 1 Joy。",
+    封心锁爱: "将此牌留在你面前。你不能成为【心动夸夸】的目标。若你已有心动标记，弃置这些标记，并使每枚标记的发起者失去 1 Joy。",
+    不支持不反对: "移除场上所有未连接一名男性与一名女性的心动标记。被移除关系的双方各失去 1 Joy；每名玩家因本牌至多失去 1 Joy。",
     地雷系: "将此牌留在你面前。每当另一名玩家对你使用一张牌时，其失去 1 Joy。",
     打烊: "弃置一张公共牌，然后补满公共牌列。",
     爱美之心: "获得一张公共牌并立即打出；不进入手牌。",

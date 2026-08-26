@@ -87,7 +87,7 @@ test("心动夸夸只标记其他玩家、可累积多个对象，并在后续�
   assert.equal(firstActions.some((action) => action.targetId === 0), false, "不能对自己使用心动夸夸");
   game = applyLegalAction(game, firstActions.find((action) => action.targetId === 1)!);
   assert.deepEqual(game.players[0].crushTargetIds, [1]);
-  assert.equal(game.players[0].joy, 2, "心动夸夸本身不让出牌者获得连锁 Joy");
+  assert.equal(game.players[0].joy, 3, "心动夸夸让双方立即各获得 1 Joy，但不会触发连锁 Joy");
   assert.equal(game.players[1].joy, 3);
   assert.deepEqual(game.players[1].scoreSources, [{ cardName: "心动夸夸", joy: 1 }]);
 
@@ -95,28 +95,28 @@ test("心动夸夸只标记其他玩家、可累积多个对象，并在后续�
   game.phase = "play";
   game.players[0].hand = [{ id: "crush-follow-up", name: "她", kind: "action" }];
   game = applyLegalAction(game, enumerateLegalActions(game).find((action) => action.cardId === "crush-follow-up" && action.targetId === 1)!);
-  assert.equal(game.players[0].joy, 3);
-  assert.deepEqual(game.players[0].scoreSources, [{ cardName: "心动标记", joy: 1 }]);
+  assert.equal(game.players[0].joy, 4);
+  assert.deepEqual(game.players[0].scoreSources, [{ cardName: "心动夸夸", joy: 1 }, { cardName: "心动标记", joy: 1 }]);
 
   game.active = 0;
   game.phase = "play";
   game.players[0].hand = [{ id: "crush-move", name: "心动夸夸", kind: "action" }];
   game = applyLegalAction(game, enumerateLegalActions(game).find((action) => action.cardId === "crush-move" && action.targetId === 2)!);
   assert.deepEqual(game.players[0].crushTargetIds, [1, 2], "新标记与此前标记同时保留");
-  assert.equal(game.players[0].joy, 3, "给予新标记本身不触发连锁 Joy");
+  assert.equal(game.players[0].joy, 5, "给予新标记时获得牌面规定的 1 Joy，但不触发连锁 Joy");
 
   game.active = 0;
   game.phase = "play";
   game.players[0].hand = [{ id: "old-crush-target", name: "他", kind: "action" }];
   game = applyLegalAction(game, enumerateLegalActions(game).find((action) => action.cardId === "old-crush-target" && action.targetId === 1)!);
-  assert.equal(game.players[0].joy, 4, "此前的心动对象仍触发奖励");
+  assert.equal(game.players[0].joy, 6, "此前的心动对象仍触发奖励");
 
   game.active = 0;
   game.phase = "play";
   game.players[0].hand = [{ id: "new-crush-target", name: "她", kind: "action" }];
   game = applyLegalAction(game, enumerateLegalActions(game).find((action) => action.cardId === "new-crush-target" && action.targetId === 2)!);
-  assert.equal(game.players[0].joy, 5);
-  assert.deepEqual(game.players[0].scoreSources, [{ cardName: "心动标记", joy: 3 }]);
+  assert.equal(game.players[0].joy, 7);
+  assert.deepEqual(game.players[0].scoreSources, [{ cardName: "心动夸夸", joy: 2 }, { cardName: "心动标记", joy: 3 }]);
 });
 
 test("AI 会优先利用已经建立的心动标记获得额外 Joy", () => {
@@ -148,8 +148,8 @@ test("封心锁爱清除已有心动标记、反噬每名发起者并持续免�
   assert.deepEqual(game.players[1].crushTargetIds, []);
   assert.deepEqual(game.players[2].crushTargetIds, []);
   assert.deepEqual(game.players[3].crushTargetIds, [2], "与封心者无关的心动标记不受影响");
-  assert.equal(game.players[1].joy, 1);
-  assert.equal(game.players[2].joy, 0, "Joy 不足 2 时只失去现有 Joy");
+  assert.equal(game.players[1].joy, 2);
+  assert.equal(game.players[2].joy, 0, "每名标记发起者失去 1 Joy");
   assert.ok(!game.discard.some((card) => card.id === "closed-heart"), "封心锁爱应持续留场");
 
   game.active = 1;
@@ -158,6 +158,33 @@ test("封心锁爱清除已有心动标记、反噬每名发起者并持续免�
   const crushTargets = enumerateLegalActions(game).filter((action) => action.cardId === "blocked-crush");
   assert.equal(crushTargets.some((action) => action.targetId === 0), false);
   assert.ok(crushTargets.some((action) => action.targetId === 2));
+});
+
+test("不支持不反对只保留男性与女性之间的心动标记", () => {
+  let game = createSimGame(["男性甲", "女性乙", "非二元丙", "男性丁"]);
+  game.active = 0;
+  game.phase = "play";
+  game.players[0].identity = "male";
+  game.players[1].identity = "female";
+  game.players[2].identity = "nonbinary";
+  game.players[3].identity = "male";
+  game.players[0].crushTargetIds = [1, 2, 3];
+  game.players[1].crushTargetIds = [0, 2];
+  game.players[2].crushTargetIds = [1];
+  game.players[3].crushTargetIds = [1];
+  game.players[0].hand = [{ id: "neutral-opposition", name: "不支持不反对", kind: "action" }];
+
+  const action = enumerateLegalActions(game).find((candidate) => candidate.cardId === "neutral-opposition")!;
+  assert.equal(action.targetId, undefined);
+  game = applyLegalAction(game, action);
+
+  assert.deepEqual(game.players[0].crushTargetIds, [1]);
+  assert.deepEqual(game.players[1].crushTargetIds, [0]);
+  assert.deepEqual(game.players[2].crushTargetIds, []);
+  assert.deepEqual(game.players[3].crushTargetIds, [1]);
+  assert.deepEqual(game.players.map((player) => player.joy), [1, 1, 1, 1], "被移除关系的双方各失去 1 Joy，且每人至多失去 1 Joy");
+  assert.deepEqual(game.players.map((player) => player.joyLossVersion), [1, 1, 1, 1], "同一玩家涉及多段关系仍只结算一次 Joy 损失");
+  assert.ok(game.discard.some((card) => card.id === "neutral-opposition"));
 });
 
 test("地雷系留场，并让每名对持有者使用牌的其他玩家失去 1 Joy", () => {
@@ -408,7 +435,7 @@ test("爱美之心获得公共行动牌后立即选择目标并执行", () => {
 
   const praiseOther = enumerateLegalActions(claimed).find((action) => action.cardId === "claimed-praise" && action.targetId === 1)!;
   const resolved = applyLegalAction(claimed, praiseOther);
-  assert.equal(resolved.players[0].joy, 2);
+  assert.equal(resolved.players[0].joy, 3);
   assert.equal(resolved.players[1].joy, 3);
   assert.deepEqual(resolved.players[0].crushTargetIds, [1]);
   assert.equal(resolved.forcedPlay, null);
@@ -778,7 +805,7 @@ test("呈现牌数量翻倍并加入两张皱巴巴的格子衬衫", () => {
   assert.equal(count("扑朔迷离"), 1);
   assert.equal(count("先入为主"), 1);
   assert.equal(count("detrans"), 1);
-  ["程序员", "变装皇后", "女装店老板", "自由职业者", "改好证了！", "封心锁爱", "地雷系", "空间主理人", "伪娘团"]
+  ["程序员", "变装皇后", "女装店老板", "自由职业者", "改好证了！", "封心锁爱", "不支持不反对", "地雷系", "空间主理人", "伪娘团"]
     .forEach((name) => assert.equal(count(name), 1, `${name}应有一张`));
   assert.equal(count("发卡"), 0, "【发卡】不进入正式牌库");
   assert.ok(allCards.filter((card) => card.name === "皱巴巴的格子衬衫").every((card) => !card.checked));
