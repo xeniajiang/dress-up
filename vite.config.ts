@@ -17,12 +17,6 @@ const isCodexSeatbeltSandbox = process.env.CODEX_SANDBOX === "seatbelt";
 
 const localBindingConfig = {
   main: "./worker/index.ts",
-  durable_objects: {
-    bindings: [{ name: "ROOMS", class_name: "GameRoom" }],
-  },
-  exports: {
-    GameRoom: { type: "durable-object", storage: "sqlite" },
-  },
   d1_databases: d1
     ? [
         {
