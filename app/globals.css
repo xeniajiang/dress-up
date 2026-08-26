@@ -1240,6 +1240,10 @@ button.mini-object:not(:disabled) { cursor: pointer; box-shadow: 0 0 0 3px rgba(
 .board-move-hint button:hover { background: #dfd0ee; }
 
 .public-table { grid-column: 2; grid-row: 1 / span 2; min-height: 410px; position: relative; display: grid; place-items: center; }
+.pool-notice { position: absolute; z-index: 4; top: 58px; left: 50%; transform: translateX(-50%); padding: 5px 14px; border: 1px solid rgba(139,92,197,.3); border-radius: 999px; background: rgba(248,244,253,.92); box-shadow: 0 4px 12px rgba(35,40,59,.08); color: #5b3f8f; font-size: 12px; font-weight: 700; letter-spacing: .04em; white-space: nowrap; }
+.final-play-banner { display: grid; justify-items: center; gap: 8px; text-align: center; color: #5b3f8f; }
+.final-play-banner b { font-size: 20px; letter-spacing: .1em; }
+.final-play-banner span { font-size: 12px; color: #6f7480; }
 .venue-object { position: absolute; z-index: 2; top: 0; left: 50%; transform: translateX(-50%); width: min(470px, 78%); padding: 8px 13px; display: flex; align-items: center; justify-content: center; gap: 10px; border: 1px solid #c9c4cd; border-radius: 11px; background: rgba(255,255,255,.86); box-shadow: 0 5px 16px rgba(35,40,59,.06); }
 .venue-object > i { flex: 0 0 auto; font-size: 24px; font-style: normal; }
 .venue-object > div { min-width: 0; display: grid; grid-template-columns: auto 1fr; align-items: baseline; gap: 2px 9px; }

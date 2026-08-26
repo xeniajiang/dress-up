@@ -1111,7 +1111,7 @@ function GameTable({ mode, names, controllers, viewerPlayerId, onExit, startTuto
       else if (encounteredCard?.kind === "present" && !seen("present")) desired = "present";
       else if (encounteredCard?.kind === "action" && !seen("action")) desired = "action";
       else if (isHumanDecision && game.phase === "draw" && !seen("draw")) desired = "draw";
-      else if (isHumanDecision && game.phase === "play" && !seen("play")) desired = "play";
+      else if (isHumanDecision && (game.phase === "play" || game.phase === "final-play") && !seen("play")) desired = "play";
     }
 
     return desired;
@@ -1151,7 +1151,7 @@ function GameTable({ mode, names, controllers, viewerPlayerId, onExit, startTuto
   }, [fittingRoomNotice, game, goalGuideOpen, goalSwapTransition, lastPlayAnimationDuration, pendingPronoun, performAction, playedCardTransition, ruleOpen, running, shouldWaitForHuman, speed, stepCount, tutorialIntroOpen, tutorialTip]);
 
   const selectHandCard = (cardId: string) => {
-    if (!isHumanDecision || game.phase !== "play") return;
+    if (!isHumanDecision || (game.phase !== "play" && game.phase !== "final-play")) return;
     if (game.forcedPlay && game.forcedPlay.card.id !== cardId) return;
     if (effectiveSelectedCardId === cardId) {
       const immediate = playActions.filter((action) => action.cardId === cardId && action.targetId === undefined && action.marketCardId === undefined && action.presentId === undefined);
@@ -1308,7 +1308,7 @@ function GameTable({ mode, names, controllers, viewerPlayerId, onExit, startTuto
           (action) => action.cardId === card.id
         );
         const selectable =
-          isHumanDecision && game.phase === "play" && hasLegalPlay;
+          isHumanDecision && (game.phase === "play" || game.phase === "final-play") && hasLegalPlay;
         const selected = effectiveSelectedCardId === card.id;
 
         return (
@@ -1472,12 +1472,16 @@ function GameTable({ mode, names, controllers, viewerPlayerId, onExit, startTuto
         </div>
 
         <section className="public-table">
+          {game.poolNotice && <div className="pool-notice" role="status">{game.poolNotice}</div>}
           {game.venue && <div className="venue-object">
             <i className="venue-object-art" style={{ backgroundImage: `url(${venueBannerImage(game.venue.card.name)})` }} aria-hidden="true" />
             <div className="venue-object-copy"><b>{game.venue.card.name}</b><span>{venueEffectCopy(game.venue.card.name)}</span><small>持续至 {game.players[game.venue.ownerId].name} 的下回合结束</small>{isHumanDecision && venueConvertActions.length > 0 && <div className="venue-convert-actions">{venueConvertActions.map((action) => <button onClick={() => performAction(action)} key={action.id}>{action.venueIdentity === "female" ? "变为女性" : "变为非二元"}</button>)}</div>}</div>
           </div>}
           {game.dei && <div className="dei-badge" role="status" aria-label="职场 DEI 生效，职场 Dress Code 已禁用" title="职场 DEI 生效：职场 Dress Code 无效"><b>DEI</b></div>}
 
+          {game.phase === "final-play" ? (
+            <div className="final-play-banner" role="status"><b>最后一次出牌</b><span>牌已拿完，直接打出你最后的牌。</span></div>
+          ) : (
           <div className="public-row">
             <button className={`deck-pile ${game.deck.length === 0 ? "is-empty" : ""} ${isHumanDecision && game.phase === "draw" && deckAction ? "is-actionable" : ""}`} disabled={!isHumanDecision || game.phase !== "draw" || !deckAction} onClick={() => deckAction && performAction(deckAction)} aria-label={skipDrawAction ? "牌堆已空，继续到出牌" : "暗摸一张牌"}>
               <div className="card-back"><b>dress-<em>up!</em></b></div><span>{game.deck.length}</span>
@@ -1490,6 +1494,7 @@ function GameTable({ mode, names, controllers, viewerPlayerId, onExit, startTuto
               return <button className={`table-card ${cardClass(card.kind, card.checked)} ${actionable ? "is-actionable" : ""} ${game.dei && card.name === "职场 Dress Code" ? "is-dei-disabled" : ""}`} aria-disabled={!actionable} tabIndex={actionable ? 0 : -1} onClick={() => chooseMarketCard(card.id)} key={card.id}><CardFace card={card} />{game.locks[card.id] !== undefined && <em className="lock-mark">锁给 {game.players[game.locks[card.id]].name}</em>}</button>;
             })}</div>
           </div>
+          )}
         </section>
 
         {mode === "solo" && renderOwnHand("mobile-own-hand")}
@@ -1706,7 +1711,7 @@ function GameTable({ mode, names, controllers, viewerPlayerId, onExit, startTuto
         <section><b>行动</b><p>通常结算后弃置；写有“留在你面前”的牌持续生效。</p></section>
         <section><b>场地</b><p>场上同时只有一个，新场地会替换旧场地。</p></section>
         <section><b>读取</b><p>蓝看蓝，粉看粉；非二元二切看读取，三切看白。</p></section>
-        <section><b>终局</b><p>牌堆耗尽后补齐本轮；总分 = 目标得分 + Joy。</p></section>
+        <section><b>终局</b><p>明牌与暗牌都拿完后，尚未行动的玩家各打最后一张牌；总分 = 目标得分 + Joy。</p></section>
       </div>}
 
       {ruleView === "full" && <div className="full-rules">
@@ -1714,7 +1719,7 @@ function GameTable({ mode, names, controllers, viewerPlayerId, onExit, startTuto
         <b>dress-up! · 4 人隐藏目标策略卡牌游戏</b>
         <p>
           每名玩家都有一个秘密目标。通过拿牌和出牌，改变自己与其他玩家的呈现、身份、Joy 和桌面状态。
-          主牌堆耗尽并完成最后一轮后公开目标。
+          明牌与暗牌都拿完后，最后一次出牌结束，公开目标。
         </p>
         <p><strong>总分 = 目标得分 + 剩余 Joy</strong>，最高分获胜。</p>
       </section>

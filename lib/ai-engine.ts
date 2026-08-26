@@ -1,6 +1,6 @@
 export type SimIdentity = "male" | "female" | "nonbinary";
 export type SimSide = "male" | "female";
-export type SimPhase = "draw" | "play" | "ended";
+export type SimPhase = "draw" | "play" | "final-play" | "ended";
 export type SimController = "human" | "ai";
 
 export type SimGoal = "文艺男" | "男娘" | "跨女" | "demi-girl" | "enby";
@@ -80,6 +80,9 @@ export type SimGame = {
   dei: boolean;
   locks: Record<string, number>;
   finishing: boolean;
+  poolNotice: string | null;
+  poolWarned5: boolean;
+  poolWarnedEmpty: boolean;
   events: string[];
   warnings: string[];
   certificateOffer: {
@@ -177,6 +180,7 @@ export type VisibleGame = {
   locks: Record<string, number>;
   deckCount: number;
   decisionPlayerId: number;
+  poolNotice: string | null;
   warnings: string[];
 };
 
@@ -264,7 +268,7 @@ export function createSimGame(
       shopOwnerScoring: ruleOverrides.shopOwnerScoring ?? "three-four-tier-2-4",
     },
     players, deck, market: [deck.shift()!, deck.shift()!, deck.shift()!], discard: [], active, phase: "draw", round: 1,
-    venue: null, dei: false, locks: {}, finishing: false, turnSerial: 0,
+    venue: null, dei: false, locks: {}, finishing: false, poolNotice: null, poolWarned5: false, poolWarnedEmpty: false, turnSerial: 0,
     events: [`${players[active].name} 随机先手。`, `${controllerSessionLabel(players)}开始。`], warnings: [], certificateOffer: null, truthOffer: null, confusionOffer: null, beautyOffer: null, fittingRoomOffer: null, sharedWardrobeOffer: null, forcedPlay: null, venueExchange: null, manzhanOpeningChoice: null, manzhanPinkPrompt: null, readingPrompt: null, checkCountPrompt: null, dressCodeOffer: null,
   };
 }
@@ -307,6 +311,7 @@ export function visibleStateFor(game: SimGame, observerId: number): VisibleGame 
     locks: { ...game.locks },
     deckCount: game.deck.length,
     decisionPlayerId: decisionPlayerId(game),
+    poolNotice: game.poolNotice,
     warnings: [...game.warnings],
   };
 }
@@ -885,7 +890,7 @@ export function enumerateLegalActions(game: SimGame): SimAction[] {
   }
   const actor = game.players[game.active];
   if (game.manzhanPinkPrompt?.playerId === actor.id) return enumerateManzhanPinkMoves(game, actor);
-  if (game.phase === "play" && game.venue?.card.name === "漫展" && !manzhanPinkHandledThisTurn(game, actor)) {
+  if ((game.phase === "play" || game.phase === "final-play") && game.venue?.card.name === "漫展" && !manzhanPinkHandledThisTurn(game, actor)) {
     const currentIdentity = actor.tempIdentity ?? actor.identity;
     const moves = enumerateManzhanPinkMoves(game, actor);
     if (currentIdentity === "nonbinary" && manzhanEffectFor(game, actor) === null) {
@@ -975,8 +980,22 @@ function warn(game: SimGame, text: string) {
 
 function drawTop(game: SimGame) {
   const card = game.deck.shift() ?? null;
-  if (card && game.deck.length === 0) game.finishing = true;
   return card;
+}
+
+function checkDrawPoolExhausted(game: SimGame) {
+  const total = game.deck.length + game.market.length;
+  if (total <= 5 && !game.poolWarned5) {
+    game.poolWarned5 = true;
+    game.poolNotice = "最后 5 张牌";
+    event(game, "明牌与暗牌合计只剩 5 张。");
+  }
+  if (total === 0 && !game.poolWarnedEmpty) {
+    game.poolWarnedEmpty = true;
+    game.finishing = true;
+    game.poolNotice = "最后一张牌已被拿走";
+    event(game, "最后一张牌已被拿走；本轮尚未行动的玩家只剩最后一次出牌。");
+  }
 }
 
 function refill(game: SimGame) {
@@ -1259,7 +1278,8 @@ function resolvePlay(game: SimGame, action: SimAction, card: SimCard, random = M
     game.market = [];
     game.locks = {};
     refill(game);
-    game.phase = "draw";
+    if (!game.certificateOffer) checkDrawPoolExhausted(game);
+    game.phase = game.finishing ? "final-play" : "draw";
     event(game, `${actor.name} 将 ${returned} 张公共牌洗回暗牌并重抽公共牌列，可以再次拿牌并出牌。`);
   } else if (card.name === "试用代词") {
     const identities: SimIdentity[] = ["male", "female", "nonbinary"];
@@ -1422,7 +1442,7 @@ function advanceTurn(game: SimGame) {
   }
   game.active = nextId;
   Object.entries(game.locks).forEach(([cardId, ownerId]) => { if (ownerId === nextId) delete game.locks[cardId]; });
-  game.phase = "draw";
+  game.phase = game.finishing ? "final-play" : "draw";
 }
 
 function finishVenueExchangeParticipant(game: SimGame) {
@@ -1433,6 +1453,7 @@ function finishVenueExchangeParticipant(game: SimGame) {
     return;
   }
   game.venueExchange = null;
+  checkDrawPoolExhausted(game);
   advanceTurn(game);
 }
 
@@ -1583,6 +1604,7 @@ export function applyLegalAction(current: SimGame, action: SimAction, random = M
       event(game, `${owner.name} 弃置【${discarded.name}】，用小证将【她】换入手牌；小证物件继续保留。`);
     }
     refill(game);
+    if (!game.certificateOffer) checkDrawPoolExhausted(game);
     if (resumeAfter === "advance-turn") advanceTurn(game);
     else if (resumeAfter === "fitting-room-fulingta") {
       const resumeActor = game.players[offer.resumeActorId!];
@@ -1643,7 +1665,7 @@ export function applyLegalAction(current: SimGame, action: SimAction, random = M
     } else {
       event(game, `${offerActor.name} 没有打出展示牌；3 张牌按原顺序置于牌堆底。`);
     }
-    if (game.deck.length === 0) game.finishing = true;
+    checkDrawPoolExhausted(game);
     if (!startFulingtaExchange(game, offerActor, action)) advanceTurn(game);
     return game;
   }
@@ -1651,7 +1673,7 @@ export function applyLegalAction(current: SimGame, action: SimAction, random = M
     const offer = game.fittingRoomOffer!;
     const actor = game.players[offer.actorId];
     game.deck = [...offer.revealed, ...game.deck];
-    if (game.deck.length === 0) game.finishing = true;
+    checkDrawPoolExhausted(game);
     game.fittingRoomOffer = null;
     event(game, `${actor.name} 的【闺蜜试衣间】没买到衣服；牌效空出。`);
     if (!startFulingtaExchange(game, actor, { ...action, targetId: offer.targetId })) advanceTurn(game);
@@ -1670,6 +1692,7 @@ export function applyLegalAction(current: SimGame, action: SimAction, random = M
       event(game, `${actor.name} 的【闺蜜试衣间】只找到【${selected.name}】，立即对自己打出；衣物覆盖正常结算。`);
     }
     refill(game);
+    if (!game.certificateOffer) checkDrawPoolExhausted(game);
     if (game.certificateOffer) {
       game.certificateOffer.resumeAfter = "fitting-room-fulingta";
       game.certificateOffer.resumeActorId = actor.id;
@@ -1691,7 +1714,6 @@ export function applyLegalAction(current: SimGame, action: SimAction, random = M
     }
     const returned = offer.revealed.filter((card) => !selectedIds.has(card.id));
     game.deck = [...returned, ...game.deck];
-    if (game.deck.length === 0) game.finishing = true;
     offer.revealed = [];
     offer.selected = selected;
     offer.stage = "allocate";
@@ -1709,6 +1731,7 @@ export function applyLegalAction(current: SimGame, action: SimAction, random = M
     gainPresent(game, targetCard, target.id);
     event(game, `${target.name} 将【${actorCard.name}】分给 ${actor.name}，自己获得【${targetCard.name}】；双方立即打出，衣物覆盖正常结算。`);
     refill(game);
+    if (!game.certificateOffer) checkDrawPoolExhausted(game);
     if (game.certificateOffer) {
       game.certificateOffer.resumeAfter = "fitting-room-fulingta";
       game.certificateOffer.resumeActorId = actor.id;
@@ -1796,10 +1819,12 @@ export function applyLegalAction(current: SimGame, action: SimAction, random = M
   }
   if (action.type === "draw-blind") {
     const card = drawTop(game); if (card) actor.hand.push(card);
+    checkDrawPoolExhausted(game);
     game.phase = "play"; event(game, `${actor.name} 暗摸 1 张。`); return game;
   }
   if (action.type === "draw-market") {
     const card = removeMarket(game, action.marketCardId); if (card) actor.hand.push(card);
+    if (!game.certificateOffer) checkDrawPoolExhausted(game);
     game.phase = "play"; event(game, `${actor.name} 明拿【${card?.name}】。`); return game;
   }
   if (action.type === "skip-draw") {
@@ -1835,12 +1860,15 @@ export function applyLegalAction(current: SimGame, action: SimAction, random = M
   event(game, forcedCard ? `${actor.name} 立即${action.label}。` : `${actor.name} ${action.label}。`);
   if (grantsManzhanBluePlay) {
     if ((actor.tempIdentity ?? actor.identity) === "nonbinary") recordFirstWhiteEffect(game, actor, "漫展");
-    game.phase = "draw";
+    game.phase = game.finishing ? "final-play" : "draw";
     event(game, `${actor.name} 触发【漫展】蓝色效果：该检定呈现不计正常出牌，重新进入拿牌阶段；拿牌后仍可完成正常出牌。`);
   }
   if (game.certificateOffer) game.certificateOffer.resumeAfter = grantsExtraAction || grantsManzhanBluePlay ? "none" : game.forcedPlay ? "forced-play" : "advance-turn";
   else if (game.truthOffer) game.truthOffer.resumeAfter = grantsExtraAction ? "none" : "advance-turn";
   else if (game.confusionOffer) game.confusionOffer.resumeAfter = grantsExtraAction ? "none" : "advance-turn";
-  else if (!game.beautyOffer && !game.fittingRoomOffer && !game.sharedWardrobeOffer && !game.forcedPlay && !game.manzhanOpeningChoice && !game.dressCodeOffer && !grantsExtraAction && !grantsManzhanBluePlay && !startFulingtaExchange(game, actor, action)) advanceTurn(game);
+  else if (!game.beautyOffer && !game.fittingRoomOffer && !game.sharedWardrobeOffer && !game.forcedPlay && !game.manzhanOpeningChoice && !game.dressCodeOffer && !grantsExtraAction && !grantsManzhanBluePlay && !startFulingtaExchange(game, actor, action)) {
+    checkDrawPoolExhausted(game);
+    advanceTurn(game);
+  }
   return game;
 }

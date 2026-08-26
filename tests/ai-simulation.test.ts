@@ -2284,3 +2284,122 @@ test("闺蜜试衣间顶牌只对出牌者可见，并可直接选择没买到�
   assert.deepEqual(game.deck.map((card) => card.id).slice(0, 4), ["private-top-a", "private-top-b", "private-top-present", "private-below"]);
   assert.ok(game.events[0].includes("没买到衣服"));
 });
+
+test("终局检查以明牌+暗牌合计为准：暗牌空但公共列有牌时仍可正常拿牌，不触发终局", () => {
+  const game = createSimGame(["A", "B", "C", "D"], () => 0.15);
+  game.deck = [];
+  game.market = [{ id: "last-market", name: "长发", kind: "present", checked: true }];
+  game.locks = {};
+  game.active = 0;
+  game.phase = "draw";
+  const draw = enumerateLegalActions(game).find((action) => action.type === "draw-market")!;
+  assert.ok(draw, "暗牌为空时公共牌列仍可拿");
+  const after = applyLegalAction(game, draw);
+  assert.equal(after.finishing, true, "公共列最后一张牌被拿走，明牌+暗牌均空");
+  assert.equal(after.phase, "play");
+  assert.equal(after.poolNotice, "最后一张牌已被拿走");
+  assert.ok(after.players[0].hand.some((card) => card.id === "last-market"));
+});
+
+test("最后一张牌被拿走：拿牌者正常出牌，其余玩家进入最后一次出牌，随后终局", () => {
+  let game = createSimGame(["A", "B", "C", "D"], () => 0.2);
+  game.deck = [{ id: "last-card", name: "长发", kind: "present", checked: true }];
+  game.market = [];
+  game.locks = {};
+  game.active = 0;
+  game.phase = "draw";
+  game.players.forEach((player) => {
+    player.hand = [{ id: `fizzle-${player.id}`, name: "自由职业者", kind: "action" }];
+  });
+  const draw = enumerateLegalActions(game).find((action) => action.type === "draw-blind")!;
+  game = applyLegalAction(game, draw);
+  assert.equal(game.finishing, true);
+  assert.equal(game.poolNotice, "最后一张牌已被拿走");
+  assert.equal(game.phase, "play");
+  const playA = enumerateLegalActions(game).find((action) => action.type === "play" && action.cardId === "fizzle-0")!;
+  game = applyLegalAction(game, playA);
+  assert.equal(game.phase, "final-play");
+  assert.equal(game.active, 1);
+  let finalPlays = 0;
+  while (game.phase !== "ended") {
+    const actions = enumerateLegalActions(game);
+    assert.ok(!actions.some((action) => action.type === "draw-blind" || action.type === "draw-market" || action.type === "skip-draw"), "最后一次出牌不应出现拿牌动作");
+    const play = actions.find((action) => action.type === "play")!;
+    assert.ok(play);
+    finalPlays += 1;
+    game = applyLegalAction(game, play);
+  }
+  assert.equal(finalPlays, 3);
+  assert.equal(game.poolNotice, "最后一张牌已被拿走");
+  assert.ok(game.players.every((player) => player.turns === game.players[0].turns));
+});
+
+test("明牌+暗牌合计降到 5 张时提示“最后 5 张牌”，且不视为耗尽", () => {
+  const game = createSimGame(["A", "B", "C", "D"], () => 0.25);
+  game.deck = [];
+  game.market = [
+    { id: "m1", name: "长发", kind: "present", checked: true },
+    { id: "m2", name: "美甲", kind: "present", checked: true },
+    { id: "m3", name: "亚文化裙裤", kind: "present", checked: true, dress: true },
+    { id: "m4", name: "亲戚给的宽大卫衣", kind: "present", clothing: true },
+    { id: "m5", name: "一支商标模糊的口红", kind: "present", checked: true },
+  ];
+  game.locks = {};
+  game.active = 0;
+  game.phase = "draw";
+  game.players[0].hand = [{ id: "free-0", name: "自由职业者", kind: "action" }];
+  const draw = enumerateLegalActions(game).find((action) => action.type === "draw-market")!;
+  const after = applyLegalAction(game, draw);
+  assert.equal(after.poolNotice, "最后 5 张牌");
+  assert.equal(after.poolWarned5, true);
+  assert.equal(after.finishing, false);
+});
+
+test("美妆博主临时翻空牌堆顶不触发终局，结算后按实际明牌+暗牌检查", () => {
+  const game = createSimGame(["A", "B", "C", "D"], () => 0.3);
+  game.deck = [
+    { id: "top-1", name: "长发", kind: "present", checked: true },
+    { id: "top-2", name: "美甲", kind: "present", checked: true },
+    { id: "top-3", name: "商场专柜里的裙子", kind: "present", checked: true, dress: true },
+  ];
+  game.market = [];
+  game.locks = {};
+  game.active = 0;
+  game.phase = "play";
+  game.players[0].identity = "female";
+  game.players[0].reading = "female";
+  game.players[0].hand = [{ id: "beauty", name: "美妆博主", kind: "action" }];
+  const play = enumerateLegalActions(game).find((action) => action.type === "play")!;
+  const after = applyLegalAction(game, play);
+  assert.ok(after.beautyOffer);
+  assert.equal(after.deck.length, 0);
+  assert.equal(after.market.length, 0);
+  assert.equal(after.finishing, false, "展示中的牌不算离开牌池");
+  const pass = enumerateLegalActions(after).find((action) => action.type === "beauty-blogger-pass")!;
+  const afterPass = applyLegalAction(after, pass);
+  assert.equal(afterPass.finishing, false);
+  assert.equal(afterPass.deck.length, 3);
+});
+
+test("闺蜜试衣间临时翻空牌堆顶不触发终局，空出后牌回到暗牌", () => {
+  const game = createSimGame(["A", "B", "C", "D"], () => 0.35);
+  game.deck = [
+    { id: "top-a", name: "她", kind: "action" },
+    { id: "top-b", name: "理发", kind: "action" },
+  ];
+  game.market = [];
+  game.locks = {};
+  game.active = 0;
+  game.phase = "play";
+  game.players[0].hand = [{ id: "fitting", name: "闺蜜试衣间", kind: "action" }];
+  const play = enumerateLegalActions(game).find((action) => action.type === "play")!;
+  const after = applyLegalAction(game, play);
+  assert.ok(after.fittingRoomOffer);
+  assert.equal(after.deck.length, 0);
+  assert.equal(after.market.length, 0);
+  assert.equal(after.finishing, false, "选择阶段的临时取空不触发终局");
+  const fizzle = enumerateLegalActions(after).find((action) => action.type === "fitting-room-fizzle")!;
+  const afterFizzle = applyLegalAction(after, fizzle);
+  assert.equal(afterFizzle.finishing, false);
+  assert.equal(afterFizzle.deck.length, 2);
+});
