@@ -129,7 +129,7 @@ export type SimGame = {
 
 export type SimAction = {
   id: string;
-  type: "draw-blind" | "draw-market" | "skip-draw" | "play" | "certificate-claim" | "certificate-pass" | "truth-allow" | "truth-resist" | "confusion-pay" | "confusion-discard" | "confusion-skip" | "beauty-blogger-play" | "beauty-blogger-pass" | "fitting-room-select" | "fitting-room-solo-play" | "fitting-room-allocate" | "fitting-room-fizzle" | "shared-wardrobe-select" | "shared-wardrobe-pass" | "shared-wardrobe-transfer" | "shared-wardrobe-lose-joy" | "reading-keep" | "reading-switch" | "check-count-select" | "dress-code-preserve" | "dress-code-discard-all" | "venue-convert" | "venue-exchange-discard" | "venue-manzhan-mode" | "venue-manzhan-use" | "venue-manzhan-pass" | "venue-manzhan-move";
+  type: "draw-blind" | "draw-market" | "skip-draw" | "final-play-pass" | "play" | "certificate-claim" | "certificate-pass" | "truth-allow" | "truth-resist" | "confusion-pay" | "confusion-discard" | "confusion-skip" | "beauty-blogger-play" | "beauty-blogger-pass" | "fitting-room-select" | "fitting-room-solo-play" | "fitting-room-allocate" | "fitting-room-fizzle" | "shared-wardrobe-select" | "shared-wardrobe-pass" | "shared-wardrobe-transfer" | "shared-wardrobe-lose-joy" | "reading-keep" | "reading-switch" | "check-count-select" | "dress-code-preserve" | "dress-code-discard-all" | "venue-convert" | "venue-exchange-discard" | "venue-manzhan-mode" | "venue-manzhan-use" | "venue-manzhan-pass" | "venue-manzhan-move";
   label: string;
   cardId?: string;
   /** 明确表示牌效被空出；不要依赖 action id 的文字后缀判断。 */
@@ -585,6 +585,19 @@ function isCurrentlyNonbinary(player: SimPlayer) {
   return (player.tempIdentity ?? player.identity) === "nonbinary";
 }
 
+function enumerateFulingtaBlueActions(game: SimGame, actor: SimPlayer): SimAction[] {
+  const currentIdentity = actor.tempIdentity ?? actor.identity;
+  if (game.venue?.card.name !== "福灵塔"
+    || currentIdentity !== "male"
+    || actor.items.includes("改好证了！")
+    || simChecks(actor) <= 0
+    || game.venue.abilityUsedBy.includes(actor.id)) return [];
+  return [
+    { id: `venue-convert:${actor.id}:female`, type: "venue-convert", label: "福灵塔：长期身份变为女性", venueIdentity: "female" },
+    { id: `venue-convert:${actor.id}:nonbinary`, type: "venue-convert", label: "福灵塔：长期身份变为非二元（蓝读取）", venueIdentity: "nonbinary" },
+  ];
+}
+
 function playedCardFor(game: SimGame, action: SimAction) {
   if (action.type !== "play") return undefined;
   const actor = game.players[game.active];
@@ -909,25 +922,26 @@ export function enumerateLegalActions(game: SimGame): SimAction[] {
     }
   }
   if (game.phase === "draw") {
-    const actions: SimAction[] = [];
-    const currentIdentity = actor.tempIdentity ?? actor.identity;
-    if (game.venue?.card.name === "福灵塔" && currentIdentity === "male" && !actor.items.includes("改好证了！") && simChecks(actor) > 0 && !game.venue.abilityUsedBy.includes(actor.id)) {
-      actions.push(
-        { id: `venue-convert:${actor.id}:female`, type: "venue-convert", label: "福灵塔：长期身份变为女性", venueIdentity: "female" },
-        { id: `venue-convert:${actor.id}:nonbinary`, type: "venue-convert", label: "福灵塔：长期身份变为非二元（蓝读取）", venueIdentity: "nonbinary" },
-      );
-    }
+    const actions: SimAction[] = enumerateFulingtaBlueActions(game, actor);
     if (game.deck.length) actions.push({ id: "draw:blind", type: "draw-blind", label: "暗摸" });
     game.market.filter((card) => marketAllowed(game, card, actor)).forEach((card) => actions.push({ id: `draw:${card.id}`, type: "draw-market", label: `拿【${card.name}】`, marketCardId: card.id }));
     if (!actions.length) actions.push({ id: "draw:skip", type: "skip-draw", label: "牌堆已空，跳过拿牌" });
     return actions;
   }
 
-  return actor.hand.flatMap((card) => {
+  const playActions = actor.hand.flatMap((card) => {
     const actions = enumerateCardPlayActions(game, actor, card);
     if (actions.length) return actions;
     return [{ id: `play:${card.id}:fizzle`, type: "play" as const, label: `空出【${card.name}】（无合理目标）`, cardId: card.id, fizzle: true }];
   });
+  if (game.phase !== "final-play") return playActions;
+  return [
+    ...enumerateFulingtaBlueActions(game, actor),
+    ...playActions,
+    ...(playActions.length === 0
+      ? [{ id: `final-play:pass:${actor.id}:${actor.turns}`, type: "final-play-pass" as const, label: "没有手牌，结束最后行动" }]
+      : []),
+  ];
 }
 
 function clone(game: SimGame): SimGame {
@@ -1494,6 +1508,12 @@ export function applyLegalAction(current: SimGame, action: SimAction, random = M
     warn(game, `规则引擎拒绝非法动作：${action.label}`);
     return game;
   }
+  if (action.type === "final-play-pass") {
+    const actor = game.players[game.active];
+    event(game, `${actor.name} 没有手牌，结束最后行动。`);
+    advanceTurn(game);
+    return game;
+  }
   if (action.type === "reading-keep" || action.type === "reading-switch") {
     const prompt = game.readingPrompt!;
     const check = prompt.checks[prompt.index];
@@ -1861,7 +1881,9 @@ export function applyLegalAction(current: SimGame, action: SimAction, random = M
   if (grantsManzhanBluePlay) {
     if ((actor.tempIdentity ?? actor.identity) === "nonbinary") recordFirstWhiteEffect(game, actor, "漫展");
     game.phase = game.finishing ? "final-play" : "draw";
-    event(game, `${actor.name} 触发【漫展】蓝色效果：该检定呈现不计正常出牌，重新进入拿牌阶段；拿牌后仍可完成正常出牌。`);
+    event(game, game.finishing
+      ? `${actor.name} 触发【漫展】蓝色效果：该检定呈现不计最后一次正常出牌，仍可继续出牌。`
+      : `${actor.name} 触发【漫展】蓝色效果：该检定呈现不计正常出牌，重新进入拿牌阶段；拿牌后仍可完成正常出牌。`);
   }
   if (game.certificateOffer) game.certificateOffer.resumeAfter = grantsExtraAction || grantsManzhanBluePlay ? "none" : game.forcedPlay ? "forced-play" : "advance-turn";
   else if (game.truthOffer) game.truthOffer.resumeAfter = grantsExtraAction ? "none" : "advance-turn";

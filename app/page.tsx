@@ -1022,6 +1022,7 @@ function GameTable({ mode, names, controllers, viewerPlayerId, onExit, startTuto
   const checkCountActions = legalActions.filter((action) => action.type === "check-count-select");
   const dressCodeActions = legalActions.filter((action) => action.type === "dress-code-preserve" || action.type === "dress-code-discard-all");
   const venueConvertActions = legalActions.filter((action) => action.type === "venue-convert");
+  const finalPlayPassAction = legalActions.find((action) => action.type === "final-play-pass");
   const venueExchangeActions = legalActions.filter((action) => action.type === "venue-exchange-discard");
   const hasManzhanModeChoice = legalActions.some((action) => action.type === "venue-manzhan-mode");
   const manzhanModeActions = hasManzhanModeChoice
@@ -1480,7 +1481,7 @@ function GameTable({ mode, names, controllers, viewerPlayerId, onExit, startTuto
           {game.dei && <div className="dei-badge" role="status" aria-label="职场 DEI 生效，职场 Dress Code 已禁用" title="职场 DEI 生效：职场 Dress Code 无效"><b>DEI</b></div>}
 
           {game.phase === "final-play" ? (
-            <div className="final-play-banner" role="status"><b>最后一次出牌</b><span>牌已拿完，直接打出你最后的牌。</span></div>
+            <div className="final-play-banner" role="status"><b>最后一次出牌</b><span>{finalPlayPassAction ? isHumanDecision ? "你没有手牌，可以结束最后行动。" : `${game.players[game.active].name} 没有手牌，正在结束最后行动。` : "牌已拿完，直接打出你最后的牌。"}</span>{isHumanDecision && finalPlayPassAction && <button type="button" onClick={() => performAction(finalPlayPassAction)}>结束最后行动</button>}</div>
           ) : (
           <div className="public-row">
             <button className={`deck-pile ${game.deck.length === 0 ? "is-empty" : ""} ${isHumanDecision && game.phase === "draw" && deckAction ? "is-actionable" : ""}`} disabled={!isHumanDecision || game.phase !== "draw" || !deckAction} onClick={() => deckAction && performAction(deckAction)} aria-label={skipDrawAction ? "牌堆已空，继续到出牌" : "暗摸一张牌"}>

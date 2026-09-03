@@ -1244,6 +1244,8 @@ button.mini-object:not(:disabled) { cursor: pointer; box-shadow: 0 0 0 3px rgba(
 .final-play-banner { display: grid; justify-items: center; gap: 8px; text-align: center; color: #5b3f8f; }
 .final-play-banner b { font-size: 20px; letter-spacing: .1em; }
 .final-play-banner span { font-size: 12px; color: #6f7480; }
+.final-play-banner button { border: 1px solid rgba(91, 63, 143, .22); border-radius: 999px; background: rgba(255, 255, 255, .76); color: #5b3f8f; padding: 6px 13px; font: inherit; font-size: 12px; cursor: pointer; }
+.final-play-banner button:hover { background: #fff; }
 .venue-object { position: absolute; z-index: 2; top: 0; left: 50%; transform: translateX(-50%); width: min(470px, 78%); padding: 8px 13px; display: flex; align-items: center; justify-content: center; gap: 10px; border: 1px solid #c9c4cd; border-radius: 11px; background: rgba(255,255,255,.86); box-shadow: 0 5px 16px rgba(35,40,59,.06); }
 .venue-object > i { flex: 0 0 auto; font-size: 24px; font-style: normal; }
 .venue-object > div { min-width: 0; display: grid; grid-template-columns: auto 1fr; align-items: baseline; gap: 2px 9px; }

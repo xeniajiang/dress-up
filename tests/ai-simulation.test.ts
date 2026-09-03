@@ -2334,6 +2334,107 @@ test("最后一张牌被拿走：拿牌者正常出牌，其余玩家进入最�
   assert.ok(game.players.every((player) => player.turns === game.players[0].turns));
 });
 
+test("最后一次出牌仍可使用福灵塔蓝色转换，且转换后继续完成出牌", () => {
+  let game = createSimGame(["A", "B", "C", "D"], () => 0.21);
+  game.deck = [];
+  game.market = [];
+  game.active = 1;
+  game.phase = "final-play";
+  game.finishing = true;
+  game.venue = {
+    card: { id: "final-fulingta", name: "福灵塔", kind: "venue" },
+    ownerId: 0,
+    expiresAfterOwnerTurn: 99,
+    abilityUsedBy: [],
+  };
+  game.players[1].identity = "male";
+  game.players[1].presents = [{ id: "final-check", name: "美甲", kind: "present", checked: true }];
+  game.players[1].hand = [{ id: "final-card", name: "自由职业者", kind: "action" }];
+
+  const before = enumerateLegalActions(game);
+  assert.equal(before.filter((action) => action.type === "venue-convert").length, 2);
+  assert.ok(before.some((action) => action.type === "play" && action.cardId === "final-card"));
+
+  game = applyLegalAction(game, before.find((action) => action.type === "venue-convert" && action.venueIdentity === "nonbinary")!);
+  assert.equal(game.phase, "final-play", "转换不消耗最后一次出牌");
+  assert.equal(game.players[1].identity, "nonbinary");
+  assert.ok(enumerateLegalActions(game).some((action) => action.type === "play" && action.cardId === "final-card"));
+});
+
+test("最后一次出牌仍结算福灵塔粉白手牌流动，空牌堆不会卡住", () => {
+  const game = createSimGame(["A", "B", "C", "D"], () => 0.215);
+  game.deck = [];
+  game.market = [];
+  game.active = 1;
+  game.phase = "final-play";
+  game.finishing = true;
+  game.venue = {
+    card: { id: "final-fulingta-pink", name: "福灵塔", kind: "venue" },
+    ownerId: 0,
+    expiresAfterOwnerTurn: 99,
+    abilityUsedBy: [],
+  };
+  game.players[1].identity = "female";
+  game.players[1].reading = "female";
+  game.players[1].hand = [{ id: "final-praise", name: "心动夸夸", kind: "action" }];
+
+  const play = enumerateLegalActions(game).find((action) => action.type === "play" && action.cardId === "final-praise" && action.targetId === 2)!;
+  const after = applyLegalAction(game, play);
+  assert.equal(after.venueExchange, null, "无牌可摸时应自然完成摸弃流程");
+  assert.equal(after.active, 2, "福灵塔结算后应正常轮到下一位玩家");
+  assert.equal(after.phase, "final-play");
+  assert.ok(after.events.some((entry) => entry.includes("【福灵塔】触发")));
+});
+
+test("最后一次出牌中漫展蓝色呈现不消耗正常出牌", () => {
+  let game = createSimGame(["A", "B", "C", "D"], () => 0.218);
+  game.deck = [];
+  game.market = [];
+  game.active = 1;
+  game.phase = "final-play";
+  game.finishing = true;
+  game.venue = {
+    card: { id: "final-manzhan", name: "漫展", kind: "venue" },
+    ownerId: 0,
+    expiresAfterOwnerTurn: 99,
+    abilityUsedBy: [],
+  };
+  game.players[1].identity = "male";
+  game.players[1].hand = [
+    { id: "final-makeup", name: "美甲", kind: "present", checked: true },
+    { id: "final-followup", name: "自由职业者", kind: "action" },
+  ];
+
+  const present = enumerateLegalActions(game).find((action) => action.type === "play" && action.cardId === "final-makeup" && action.targetId === 1)!;
+  game = applyLegalAction(game, present);
+  assert.equal(game.active, 1);
+  assert.equal(game.phase, "final-play");
+  assert.ok(enumerateLegalActions(game).some((action) => action.type === "play" && action.cardId === "final-followup"));
+  assert.ok(game.events[0].includes("仍可继续出牌"));
+  assert.ok(!game.events[0].includes("重新进入拿牌阶段"));
+});
+
+test("最后一次出牌时手牌为空可以结束行动，不会锁死终局", () => {
+  let game = createSimGame(["A", "B", "C", "D"], () => 0.22);
+  game.deck = [];
+  game.market = [];
+  game.active = 0;
+  game.phase = "final-play";
+  game.finishing = true;
+  game.players.forEach((player) => { player.hand = []; });
+
+  let passes = 0;
+  while (game.phase !== "ended") {
+    const actions = enumerateLegalActions(game);
+    assert.equal(actions.length, 1);
+    assert.equal(actions[0].type, "final-play-pass");
+    game = applyLegalAction(game, actions[0]);
+    passes += 1;
+  }
+  assert.equal(passes, 4);
+  assert.ok(game.events.some((entry) => entry.includes("没有手牌，结束最后行动")));
+});
+
 test("明牌+暗牌合计降到 5 张时提示“最后 5 张牌”，且不视为耗尽", () => {
   const game = createSimGame(["A", "B", "C", "D"], () => 0.25);
   game.deck = [];

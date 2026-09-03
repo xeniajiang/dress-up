@@ -206,6 +206,7 @@ function OnlineTable({ room, game, selectedCardId, onSelectCard, onAction, onCon
   const deckAction = drawActions.find((action) => action.type === "draw-blind" || action.type === "skip-draw");
   const selectedActions = selectedCardId ? availableActions.filter((action) => action.cardId === selectedCardId) : [];
   const venueConvertActions = availableActions.filter((action) => action.type === "venue-convert");
+  const finalPlayPassAction = availableActions.find((action) => action.type === "final-play-pass");
   const beautyActions = availableActions.filter((action) => action.type === "beauty-blogger-play");
   const beautyPassAction = availableActions.find((action) => action.type === "beauty-blogger-pass");
   const fittingRoomSelectActions = availableActions.filter((action) => action.type === "fitting-room-select");
@@ -244,7 +245,7 @@ function OnlineTable({ room, game, selectedCardId, onSelectCard, onAction, onCon
     "shared-wardrobe-select", "shared-wardrobe-pass", "shared-wardrobe-transfer", "shared-wardrobe-lose-joy",
     "dress-code-preserve", "dress-code-discard-all", "venue-exchange-discard", "venue-manzhan-move",
   ];
-  const promptActions = availableActions.filter((action) => !["play", "draw-blind", "draw-market", "skip-draw", "venue-convert", ...specialActionTypes].includes(action.type));
+  const promptActions = availableActions.filter((action) => !["play", "draw-blind", "draw-market", "skip-draw", "final-play-pass", "venue-convert", ...specialActionTypes].includes(action.type));
   const actionChoices = promptActions;
   const responseType = actionChoices[0]?.type;
   const responseCopy = (() => {
@@ -446,7 +447,7 @@ function OnlineTable({ room, game, selectedCardId, onSelectCard, onAction, onCon
         </div>}
         {view.dei && <div className="dei-badge" role="status" aria-label="职场 DEI 生效，职场 Dress Code 已禁用" title="职场 DEI 生效：职场 Dress Code 无效"><b>DEI</b></div>}
         {view.phase === "final-play" ? (
-          <div className="final-play-banner" role="status"><b>最后一次出牌</b><span>牌已拿完，直接打出你最后的牌。</span></div>
+          <div className="final-play-banner" role="status"><b>最后一次出牌</b><span>{finalPlayPassAction ? "你没有手牌，可以结束最后行动。" : "牌已拿完，直接打出你最后的牌。"}</span>{finalPlayPassAction && <button type="button" onClick={() => onAction(finalPlayPassAction)}>结束最后行动</button>}</div>
         ) : (
         <div className="public-row"><button className={`deck-pile ${view.deckCount === 0 ? "is-empty" : ""} ${deckAction ? "is-actionable" : ""}`} disabled={!deckAction} onClick={() => deckAction && onAction(deckAction)} aria-label={deckAction?.type === "skip-draw" ? "牌堆已空，继续到出牌" : "暗摸一张牌"}><div className="card-back"><b>dress-<em>up!</em></b></div><span>{view.deckCount}</span></button><div className="market-cards">{view.market.map((card) => { const drawAction = drawActions.find((candidate) => candidate.type === "draw-market" && candidate.marketCardId === card.id); let playOptions = selectedActions.filter((candidate) => candidate.marketCardId === card.id); playOptions = selectedTargetId === null ? playOptions.filter((candidate) => candidate.targetId === undefined) : playOptions.filter((candidate) => candidate.targetId === selectedTargetId); const action = drawAction ?? (playOptions.length === 1 ? playOptions[0] : undefined); return <button className={`table-card ${cardClass(card.kind, card.checked)} ${action ? "is-actionable" : ""} ${view.dei && card.name === "职场 Dress Code" ? "is-dei-disabled" : ""}`} aria-disabled={!action} tabIndex={action ? 0 : -1} onClick={() => action && onAction(action)} key={card.id}><CardFace card={card} />{view.locks[card.id] !== undefined && <em className="lock-mark">锁给 {view.players[view.locks[card.id]].name}</em>}</button>; })}</div></div>
         )}

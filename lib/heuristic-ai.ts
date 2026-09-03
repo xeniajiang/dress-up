@@ -376,6 +376,10 @@ function scoreAction(view: VisibleGame, action: SimAction, memory: AiMemory, ran
     reasons.push("公共牌价值一般时保留未知收益");
   }
   if (action.type === "skip-draw") selfValue = 0;
+  if (action.type === "final-play-pass") {
+    selfValue = 0;
+    reasons.push("没有手牌，结束最后行动");
+  }
   if (action.type === "beauty-blogger-pass") {
     selfValue = 0.05;
     reasons.push("展示牌中没有值得立即打出的呈现");
