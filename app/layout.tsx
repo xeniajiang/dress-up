@@ -12,9 +12,9 @@ export async function generateMetadata(): Promise<Metadata> {
   const protocol = requestHeaders.get("x-forwarded-proto") ?? (host.startsWith("localhost") ? "http" : "https");
   const origin = `${protocol}://${host}`;
   return {
-    title: "DRESS-UP! · 四人身份卡牌游戏",
+    title: "dress-up! · 酷酷衣柜",
     description: "4 AI 观战或 1 人 + 3 AI：用可解释启发式 AI 测试身份、呈现与互卡。",
-    icons: { icon: "/favicon.svg", shortcut: "/favicon.svg" },
+    icons: { icon: "/favicon.svg?v=2", shortcut: "/favicon.svg?v=2" },
     openGraph: {
       title: "DRESS-UP!",
       description: "四人身份卡牌游戏 · Heuristic AI Prototype",
