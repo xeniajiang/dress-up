@@ -704,26 +704,45 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline-color:
 
 .landing-title-main .title-ku {
   display: inline-block;
-
-  font-size: 1.15em;
-
-  background: linear-gradient(
-    135deg,
-    #6396df 0%,
-    #8e83d3 42%,
-    #c879bd 68%,
-    #ee729d 100%
-  );
-
+  position: relative;
+  font-size: 1.12em;
   background-clip: text;
   -webkit-background-clip: text;
   color: transparent;
   -webkit-text-fill-color: transparent;
+  transform-origin: 50% 82%;
+  text-shadow: 0 .07em .18em rgba(118, 91, 161, .12);
 }
 
-/* 删除之前给“酷”加的短横线 */
-.landing-title-main .title-ku::after {
-  content: none;
+.landing-title-main .title-ku-first {
+  background-image: linear-gradient(145deg, #5d9be3 5%, #8d82d2 58%, #b978c7 100%);
+  transform: translateY(-.035em) rotate(-5deg);
+  animation: landing-ku-first .62s cubic-bezier(.2, .85, .28, 1.25) both;
+}
+
+.landing-title-main .title-ku-second {
+  margin: 0 .035em 0 -.015em;
+  background-image: linear-gradient(145deg, #a879ce 4%, #da70b0 52%, #f16e98 100%);
+  transform: translateY(.025em) rotate(4deg) scale(1.035);
+  animation: landing-ku-second .68s .08s cubic-bezier(.2, .85, .28, 1.25) both;
+}
+
+.landing-title-main .title-wardrobe {
+  display: inline-block;
+}
+
+@keyframes landing-ku-first {
+  from { opacity: 0; transform: translateY(.12em) rotate(-10deg) scale(.9); }
+  to { opacity: 1; transform: translateY(-.035em) rotate(-5deg) scale(1); }
+}
+
+@keyframes landing-ku-second {
+  from { opacity: 0; transform: translateY(-.1em) rotate(10deg) scale(.9); }
+  to { opacity: 1; transform: translateY(.025em) rotate(4deg) scale(1.035); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .landing-title-main .title-ku { animation: none; }
 }
 .landing-hero h1 .landing-title-sub {
   margin: 12px 0 0 clamp(18px, 3vw, 44px);
