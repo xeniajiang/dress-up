@@ -65,20 +65,24 @@ const worker = {
       }
       const key = `matches/${matchId}.json`;
       const existing = await env.MATCH_RECORDS.get(key);
+      let preservedAdmin: MatchRecord["admin"];
       if (existing) {
         try {
           const saved = JSON.parse(await existing.text()) as MatchRecord;
+          preservedAdmin = saved.admin;
           const savedIsNewer = saved.events.length > record.events.length
             || (saved.events.length === record.events.length && saved.matchInfo.completed && !record.matchInfo.completed);
           if (savedIsNewer) return Response.json({ ok: true, matchId, ignoredOlderSnapshot: true });
         } catch { /* 损坏的旧记录允许由新快照覆盖。 */ }
       }
+      if (preservedAdmin) record.admin = preservedAdmin;
       await env.MATCH_RECORDS.put(key, JSON.stringify(record), {
         httpMetadata: { contentType: "application/json; charset=utf-8" },
         customMetadata: {
           mode: record.matchInfo.mode,
           rulesVersion: record.matchInfo.rulesVersion,
           completed: String(record.matchInfo.completed),
+          starred: String(record.admin?.starred === true),
         },
       });
       return Response.json({ ok: true, matchId });

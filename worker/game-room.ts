@@ -5,6 +5,7 @@ type SocketAttachment = { playerToken?: string };
 
 interface MatchBucketLike {
   put(key: string, value: string, options?: { httpMetadata?: { contentType?: string }; customMetadata?: Record<string, string> }): Promise<unknown>;
+  get(key: string): Promise<{ text(): Promise<string> } | null>;
 }
 
 interface GameRoomEnv { MATCH_RECORDS?: MatchBucketLike }
@@ -123,9 +124,17 @@ export class GameRoom {
     await this.state.storage.put("room", this.core.record);
     const match = this.core.record.matchRecord;
     if (match && this.env.MATCH_RECORDS) {
-      await this.env.MATCH_RECORDS.put(`matches/${match.matchInfo.matchId}.json`, JSON.stringify(match), {
+      const key = `matches/${match.matchInfo.matchId}.json`;
+      const existing = await this.env.MATCH_RECORDS.get(key);
+      if (existing) {
+        try {
+          const saved = JSON.parse(await existing.text()) as { admin?: { starred: boolean } };
+          if (saved.admin) match.admin = saved.admin;
+        } catch { /* 损坏的旧记录允许由房间快照覆盖。 */ }
+      }
+      await this.env.MATCH_RECORDS.put(key, JSON.stringify(match), {
         httpMetadata: { contentType: "application/json; charset=utf-8" },
-        customMetadata: { mode: match.matchInfo.mode, rulesVersion: match.matchInfo.rulesVersion, completed: String(match.matchInfo.completed) },
+        customMetadata: { mode: match.matchInfo.mode, rulesVersion: match.matchInfo.rulesVersion, completed: String(match.matchInfo.completed), starred: String(match.admin?.starred === true) },
       });
     }
   }

@@ -27,6 +27,9 @@ test("MatchRecord 保存初始状态、真人选择上下文和终局计分", ()
   assert.equal(record.matchInfo.completed, true);
   assert.equal(record.finalState?.players.length, 4);
   assert.equal(matchSummary(record).players[0].totalScore, record.finalState?.players[0].totalScore);
+  assert.equal(matchSummary(record).starred, false);
+  record.admin = { starred: true };
+  assert.equal(matchSummary(record).starred, true);
 });
 
 test("MatchRecord 区分没有合法目标的空出", () => {
