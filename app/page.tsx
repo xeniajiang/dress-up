@@ -1558,7 +1558,15 @@ function GameTable({ mode, names, controllers, viewerPlayerId, onExit, startTuto
         </section>
 
         {mode === "solo" && renderOwnHand("mobile-own-hand")}
-        {mode === "solo" && <section className="mobile-personal-summary">{renderGoalAndSelfStatus()}</section>}
+        {mode === "solo" && <section className="mobile-personal-summary">
+          {renderGoalAndSelfStatus()}
+          {effectiveSelectedCardId && !sharedWardrobeDragMode && selectedTargetId === null && selectedPlayActions.some((action) => action.targetId === humanPlayer.id) && <button
+            type="button"
+            className="target-marker mobile-self-target-marker"
+            aria-label={`将所选牌用于${humanPlayer.name}`}
+            onClick={() => choosePlayerTarget(humanPlayer.id)}
+          >给自己</button>}
+        </section>}
       </section>
 
       {mode === "solo" && <section className="personal-table desktop-personal-table">

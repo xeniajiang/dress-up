@@ -454,7 +454,20 @@ function OnlineTable({ room, game, selectedCardId, onSelectCard, onAction, onCon
         <div className="public-row"><button className={`deck-pile ${view.deckCount === 0 ? "is-empty" : ""} ${deckAction ? "is-actionable" : ""}`} disabled={!deckAction} onClick={() => deckAction && onAction(deckAction)} aria-label={deckAction?.type === "skip-draw" ? "牌堆已空，继续到出牌" : "暗摸一张牌"}><div className="card-back"><b>dress-<em>up!</em></b></div><span>{view.deckCount}</span></button><div className="market-cards">{view.market.map((card) => { const drawAction = drawActions.find((candidate) => candidate.type === "draw-market" && candidate.marketCardId === card.id); let playOptions = selectedActions.filter((candidate) => candidate.marketCardId === card.id); playOptions = selectedTargetId === null ? playOptions.filter((candidate) => candidate.targetId === undefined) : playOptions.filter((candidate) => candidate.targetId === selectedTargetId); const action = drawAction ?? (playOptions.length === 1 ? playOptions[0] : undefined); return <button className={`table-card ${cardClass(card.kind, card.checked)} ${action ? "is-actionable" : ""} ${view.dei && card.name === "职场 Dress Code" ? "is-dei-disabled" : ""}`} aria-disabled={!action} tabIndex={action ? 0 : -1} onClick={() => action && onAction(action)} key={card.id}><CardFace card={card} />{view.locks[card.id] !== undefined && <em className="lock-mark">锁给 {view.players[view.locks[card.id]].name}</em>}</button>; })}</div></div>
         )}
       </section>
-      {ownHand("mobile-own-hand")}<section className="mobile-personal-summary">{goalAndStatus()}</section>
+      {ownHand("mobile-own-hand")}<section className="mobile-personal-summary">
+        {goalAndStatus()}
+        {selectedCardId && !sharedWardrobeDragMode && selectedTargetId === null && selectedActions.some((action) => action.targetId === self.id) && <button
+          type="button"
+          className="target-marker mobile-self-target-marker"
+          aria-label={`将所选牌用于${self.name}`}
+          onClick={() => {
+            const selfActions = selectedActions.filter((action) => action.targetId === self.id);
+            const immediate = selfActions.filter((action) => action.marketCardId === undefined);
+            if (immediate.length === 1 && selfActions.length === 1) onAction(immediate[0]);
+            else setSelectedTargetId(self.id);
+          }}
+        >给自己</button>}
+      </section>
     </section>
     <section className="personal-table desktop-personal-table">{goalAndStatus()}{ownHand("desktop-own-hand")}</section>
     {goalGuideAnchor && <GoalGuide onboarding={false} targetAnchor={goalGuideAnchor} onClose={() => setGoalGuideAnchor(null)} />}
