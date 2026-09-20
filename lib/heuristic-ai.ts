@@ -523,7 +523,18 @@ function scoreAction(view: VisibleGame, action: SimAction, memory: AiMemory, ran
     selfValue = (goalCompletion({ ...self, presents: remaining }, goal) - goalCompletion(self, goal)) * 2.4;
     reasons.push(preserved ? `用【扑朔迷离】保留【${preserved.name}】` : "选择不保留检定呈现");
   }
-  if (action.type === "reading-keep" || action.type === "reading-switch") {
+  if ((action.type === "reading-keep" || action.type === "reading-switch") && action.id.startsWith("pronoun-")) {
+    const acceptsNonbinary = action.id === "pronoun-nonbinary";
+    const nextIdentity = acceptsNonbinary ? "nonbinary" : action.label.includes("女性") ? "female" : "male";
+    const nextReading = action.label.includes("粉") || (!acceptsNonbinary && nextIdentity === "female") ? "female" : "male";
+    const after = { ...self, identity: nextIdentity, reading: nextReading };
+    selfValue = (goalCompletion(after, goal) - goalCompletion(self, goal)) * 2.6;
+    if (acceptsNonbinary) {
+      const joyCost = self.joy <= 1 ? 3.5 : self.joy === 2 ? 2.5 : self.joy === 3 ? 1.8 : 1.3;
+      selfValue -= joyCost + (goal === "enby" ? 0.35 : 0);
+      reasons.push(`比较成为非二元的目标收益与 1 Joy 机会成本`);
+    } else reasons.push(`按自己的目标评价接受${nextIdentity === "female" ? "女性" : "男性"}长期身份`);
+  } else if (action.type === "reading-keep" || action.type === "reading-switch") {
     const prompt = view.readingPrompt!;
     const check = prompt.checks[prompt.index];
     const side = action.type === "reading-switch" ? (self.reading === "male" ? "female" : "male") : self.reading;

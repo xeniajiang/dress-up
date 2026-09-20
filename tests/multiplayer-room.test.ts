@@ -193,6 +193,26 @@ test("房主持续托管与恢复真人不改变座位身份", () => {
   assert.equal(core.record.game!.players[playerId].controller, "human");
 });
 
+test("房主托管会自动处理别人回合内由该座位响应的弹窗", () => {
+  for (const card of [
+    { id: "managed-truth", name: "真心话大冒险", kind: "action" as const },
+    { id: "managed-she", name: "她", kind: "identity" as const },
+  ]) {
+    const core = startRoom(2);
+    const game = core.record.game!;
+    game.active = 0;
+    game.phase = "play";
+    game.players[0].hand = [card];
+    core.hostSetControl(TOKENS[0], 1, true, () => 0.42, 32_000);
+    const play = enumerateLegalActions(game).find((action) => action.cardId === card.id && action.targetId === 1)!;
+    assert.ok(play);
+    core.submitAction(TOKENS[0], play.id, () => 0.42, `managed-response-${card.id}`, core.record.stateVersion, 32_100);
+    assert.equal(core.record.pendingPronoun, null, `【${card.name}】身份回应不应继续等待`);
+    assert.equal(core.record.game!.truthOffer, null, `【${card.name}】反制回应不应继续等待`);
+    assert.ok(core.record.decisionRecords.some((record) => record.playerId === 1 && record.resolvedBy === "ai-host" && record.decisionType === "response"));
+  }
+});
+
 test("暂停拒绝 Human action，继续后从原状态恢复", () => {
   const core = startRoom(2);
   const playerId = decisionPlayerId(core.record.game!);
