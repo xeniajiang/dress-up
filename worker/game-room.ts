@@ -1,14 +1,10 @@
 import { MultiplayerRoomCore, createRoomRecord, type RoomRecord } from "../lib/multiplayer-room";
 import type { ClientMessage, ServerMessage } from "../lib/multiplayer-protocol";
+import { saveMatchRecord, type MatchDatabase } from "./match-record-d1";
 
 type SocketAttachment = { playerToken?: string };
 
-interface MatchBucketLike {
-  put(key: string, value: string, options?: { httpMetadata?: { contentType?: string }; customMetadata?: Record<string, string> }): Promise<unknown>;
-  get(key: string): Promise<{ text(): Promise<string> } | null>;
-}
-
-interface GameRoomEnv { MATCH_RECORDS?: MatchBucketLike }
+interface GameRoomEnv { DB?: MatchDatabase }
 
 interface DurableSocket extends WebSocket {
   serializeAttachment(value: SocketAttachment): void;
@@ -123,20 +119,7 @@ export class GameRoom {
     if (!this.core) return;
     await this.state.storage.put("room", this.core.record);
     const match = this.core.record.matchRecord;
-    if (match && this.env.MATCH_RECORDS) {
-      const key = `matches/${match.matchInfo.matchId}.json`;
-      const existing = await this.env.MATCH_RECORDS.get(key);
-      if (existing) {
-        try {
-          const saved = JSON.parse(await existing.text()) as { admin?: { starred: boolean } };
-          if (saved.admin) match.admin = saved.admin;
-        } catch { /* 损坏的旧记录允许由房间快照覆盖。 */ }
-      }
-      await this.env.MATCH_RECORDS.put(key, JSON.stringify(match), {
-        httpMetadata: { contentType: "application/json; charset=utf-8" },
-        customMetadata: { mode: match.matchInfo.mode, rulesVersion: match.matchInfo.rulesVersion, completed: String(match.matchInfo.completed), starred: String(match.admin?.starred === true) },
-      });
-    }
+    if (match && this.env.DB) await saveMatchRecord(this.env.DB, match);
   }
 
   private connectedTokens() {

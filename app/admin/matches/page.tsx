@@ -43,7 +43,7 @@ export default function MatchAdminPage() {
     if (mode) query.set("mode", mode);
     const response = await fetch(`/api/admin/matches?${query}`, { headers });
     if (response.status === 401) { setNeedsToken(true); return; }
-    if (!response.ok) { setError("无法读取对局记录。请确认本地 R2 或线上 bucket 已配置。"); return; }
+    if (!response.ok) { setError("无法读取对局记录。请确认 D1 数据库已绑定并应用迁移。"); return; }
     const nextMatches = ((await response.json()) as { matches: Summary[] }).matches;
     setMatches(nextMatches);
     setCheckedIds((current) => current.filter((id) => nextMatches.some((match) => match.matchId === id)));

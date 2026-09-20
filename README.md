@@ -322,16 +322,18 @@ wrangler.jsonc
 
 ## 对局数据记录
 
-单机与联机均生成统一的 `MatchRecord`。单机会先写入 IndexedDB，并每 5 次决策及结算时上传；联机由 Durable Object 统一写入，避免多个客户端重复上报。完整 JSON 保存到 R2 的 `matches/` 前缀下。
+单机与联机均生成统一的 `MatchRecord`。单机会先写入 IndexedDB，并每 5 次决策及结算时上传；联机由 Durable Object 统一写入，避免多个客户端重复上报。
 
-本地开发使用 Wrangler 的本地 R2 模拟。部署前需创建名为 `dress-up-match-records` 的 R2 bucket，或同步修改 `wrangler.jsonc` 中的 bucket 名称。
+对局保存在 Cloudflare D1 的 `match_records` 表中，每局一行。`record_json` 是唯一的完整原始记录，另外只保存时间、版本、模式、玩家 ID、完成状态与星标等少量检索字段。事件、玩家、Joy 等不会拆成额外数据表。
+
+首次部署或新增迁移后执行 `npx wrangler d1 migrations apply dress-up --remote`。本地开发可执行 `npx wrangler d1 migrations apply dress-up --local` 初始化本地数据库。
 
 私有查看页为 `/admin/matches`。本地地址直接允许访问；线上必须配置以下至少一项：
 
 - `ADMIN_USER_IDS`：逗号分隔的管理员用户 ID，与 `oai-authenticated-user-id` 请求头匹配；
 - `ADMIN_TOKEN`：后台页使用的 Bearer token。
 
-后台支持按玩家 ID、规则版本和模式筛选、查看事件 Log、查看 raw JSON，以及下载单局 JSON 或全部 NDJSON。
+后台支持按玩家 ID、规则版本和模式筛选、查看事件 Log、查看 raw JSON、星标和删除对局，以及下载单局 JSON 或全部 NDJSON。也可以直接在 Cloudflare Dashboard 的 D1 页面查看 `match_records` 表或运行 SQL。
 
 ---
 

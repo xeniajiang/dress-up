@@ -1,5 +1,13 @@
 {
   "version": "7",
   "dialect": "sqlite",
-  "entries": []
+  "entries": [
+    {
+      "idx": 0,
+      "version": "6",
+      "when": 1789914743213,
+      "tag": "0000_lumpy_madame_hydra",
+      "breakpoints": true
+    }
+  ]
 }

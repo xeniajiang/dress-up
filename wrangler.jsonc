@@ -39,10 +39,12 @@
       "id": "5bfbb1d65415456ea32c231a204dd33c"
     }
   ],
-  "r2_buckets": [
+  "d1_databases": [
     {
-      "binding": "MATCH_RECORDS",
-      "bucket_name": "dress-up-match-records"
+      "binding": "DB",
+      "database_name": "dress-up",
+      "database_id": "bd20d299-b13d-4605-890d-f5153b6e7aaf",
+      "migrations_dir": "drizzle"
     }
   ]
 }
