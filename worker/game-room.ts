@@ -81,7 +81,7 @@ export class GameRoom {
           this.send(socket, { type: "TEST_RECORD", ...record });
         }
       }
-      this.core.updateConnections(this.connectedTokens());
+      this.core.reconcileConnections(this.connectedTokens());
       await this.save();
       this.broadcast();
     } catch (error) {
@@ -97,14 +97,14 @@ export class GameRoom {
 
   async webSocketClose() {
     await this.load();
-    this.core?.updateConnections(this.connectedTokens());
+    this.core?.reconcileConnections(this.connectedTokens());
     await this.save();
     this.broadcast();
   }
 
   async webSocketError() {
     await this.load();
-    this.core?.updateConnections(this.connectedTokens());
+    this.core?.reconcileConnections(this.connectedTokens());
     await this.save();
     this.broadcast();
   }
@@ -119,7 +119,13 @@ export class GameRoom {
     if (!this.core) return;
     await this.state.storage.put("room", this.core.record);
     const match = this.core.record.matchRecord;
-    if (match && this.env.DB) await saveMatchRecord(this.env.DB, match);
+    if (match && this.env.DB) {
+      try {
+        await saveMatchRecord(this.env.DB, match);
+      } catch (error) {
+        console.error("MatchRecord persistence failed; gameplay state was preserved.", error);
+      }
+    }
   }
 
   private connectedTokens() {

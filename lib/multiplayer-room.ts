@@ -427,6 +427,12 @@ export class MultiplayerRoomCore {
     if (changed) this.bump();
   }
 
+  reconcileConnections(connectedTokens: ReadonlySet<string>, random = () => this.nextRandom(), now = Date.now()) {
+    this.updateConnections(connectedTokens, now);
+    if (this.record.status === "playing") this.advanceAi(random, now);
+    this.syncDecision(now);
+  }
+
   setReady(token: string, ready: boolean) {
     const playerId = this.requireHuman(token);
     const seat = this.record.seats[playerId];

@@ -220,6 +220,42 @@ test("断线不自动托管，原 token 重连仍恢复原座位", () => {
   assert.equal(disconnected.controller === "human" && disconnected.online, true);
 });
 
+test("断线玩家由房主持续托管后会立即继续运行", () => {
+  const core = startRoom(2);
+  core.updateConnections(new Set([TOKENS[0]]), 56_000);
+  let guard = 0;
+  while (core.record.game?.phase !== "ended" && decisionPlayerId(core.record.game!) !== 1 && guard < 20) {
+    const state = core.gameStateFor(TOKENS[0])!;
+    assert.ok(state.actions[0], "房主应能推进到断线玩家的决定");
+    core.submitAction(TOKENS[0], state.actions[0].id, () => 0.42, `reach-offline-${guard}`, core.record.stateVersion, 56_100 + guard);
+    guard += 1;
+  }
+  assert.equal(decisionPlayerId(core.record.game!), 1);
+  const before = core.record.decisionRecords.length;
+  core.hostSetControl(TOKENS[0], 1, true, () => 0.42, 57_000);
+  assert.ok(core.record.decisionRecords.slice(before).some((record) => record.playerId === 1 && record.resolvedBy === "ai-host"));
+  assert.notEqual(core.record.currentDecision?.playerId, 1);
+});
+
+test("连接事件会重新唤醒已经由房主托管的断线座位", () => {
+  const core = startRoom(2);
+  let guard = 0;
+  while (core.record.game?.phase !== "ended" && decisionPlayerId(core.record.game!) !== 1 && guard < 20) {
+    const state = core.gameStateFor(TOKENS[0])!;
+    core.submitAction(TOKENS[0], state.actions[0].id, () => 0.42, `reach-managed-offline-${guard}`, core.record.stateVersion, 58_000 + guard);
+    guard += 1;
+  }
+  assert.equal(decisionPlayerId(core.record.game!), 1);
+  const seat = core.record.seats[1];
+  assert.equal(seat.controller, "human");
+  if (seat.controller !== "human") return;
+  seat.controlMode = "ai-host";
+  const before = core.record.decisionRecords.length;
+  core.reconcileConnections(new Set([TOKENS[0]]), () => 0.42, 59_000);
+  assert.ok(core.record.decisionRecords.slice(before).some((record) => record.playerId === 1 && record.resolvedBy === "ai-host"));
+  assert.notEqual(core.record.currentDecision?.playerId, 1);
+});
+
 test("requestId 幂等且 stale stateVersion 不能覆盖新状态", () => {
   const core = startRoom(2);
   const playerId = decisionPlayerId(core.record.game!);
