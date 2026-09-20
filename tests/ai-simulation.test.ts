@@ -428,7 +428,10 @@ test("场地持续至打出者的下回合结束", () => {
   base.phase = "play";
   base.players[0].hand = [{ id: "venue-test", name: "全女空间！", kind: "venue" }];
 
-  const venueAction = enumerateLegalActions(base).find((action) => action.cardId === "venue-test")!;
+  const venueActions = enumerateLegalActions(base).filter((action) => action.cardId === "venue-test");
+  assert.ok(venueActions.length > 0);
+  assert.ok(venueActions.every((action) => !action.fizzle), "场地牌不得提供空出动作");
+  const venueAction = venueActions[0];
   let game = applyLegalAction(base, venueAction);
   assert.equal(game.venue?.ownerId, 0);
   assert.equal(game.venue?.expiresAfterOwnerTurn, 2);
@@ -469,6 +472,14 @@ test("爱美之心获得公共行动牌后立即选择目标并执行", () => {
   assert.equal(claimed.active, 0, "立即打出的牌结算前不能结束回合");
   assert.equal(claimed.forcedPlay?.card.id, "claimed-praise");
   assert.ok(!claimed.players[0].hand.some((card) => card.id === "claimed-praise"), "获得的牌不进入手牌");
+
+  const forcedFizzle = enumerateLegalActions(claimed).find((action) => action.cardId === "claimed-praise" && action.fizzle);
+  assert.ok(forcedFizzle, "爱美之心要求立即打出的行动牌也可以选择空出");
+  const fizzled = applyLegalAction(claimed, forcedFizzle!);
+  assert.equal(fizzled.forcedPlay, null);
+  assert.ok(fizzled.discard.some((card) => card.id === "claimed-praise"));
+  assert.equal(fizzled.players[0].joy, 2, "空出不应结算心动夸夸的 Joy");
+  assert.deepEqual(fizzled.players[0].crushTargetIds, []);
 
   const praiseOther = enumerateLegalActions(claimed).find((action) => action.cardId === "claimed-praise" && action.targetId === 1)!;
   const resolved = applyLegalAction(claimed, praiseOther);
@@ -511,7 +522,9 @@ test("裙装与裙裤互相覆盖且保留离场动画状态", () => {
   base.players[0].presents = [{ id: "old-dress", name: "家里翻到的古老碎花裙", kind: "present", checked: true, dress: true }];
   base.players[0].hand = [{ id: "new-dress", name: "亚文化裙裤", kind: "present", checked: true, dress: true }];
 
-  const replace = enumerateLegalActions(base).find((action) => action.cardId === "new-dress" && action.targetId === 0)!;
+  const presentActions = enumerateLegalActions(base).filter((action) => action.cardId === "new-dress");
+  assert.ok(presentActions.every((action) => !action.fizzle), "呈现牌不得提供空出动作");
+  const replace = presentActions.find((action) => action.targetId === 0)!;
   const game = applyLegalAction(base, replace);
   const dresses = game.players[0].presents.filter((card) => card.dress);
   assert.deepEqual(dresses.map((card) => card.id), ["new-dress"]);
@@ -573,7 +586,7 @@ test("扑朔迷离与先入为主持续留场、按当前身份修改检定并�
   ];
   blueBase.players[0].hand = [{ id: "hard-to-tell-blue", name: "扑朔迷离", kind: "action" }];
 
-  const blueActions = enumerateLegalActions(blueBase).filter((action) => action.cardId === "hard-to-tell-blue");
+  const blueActions = enumerateLegalActions(blueBase).filter((action) => action.cardId === "hard-to-tell-blue" && !action.fizzle);
   assert.equal(blueActions.length, 1);
   assert.equal(blueActions[0].presentId, undefined, "蓝栏不应要求玩家选择呈现");
   let game = applyLegalAction(blueBase, blueActions[0]);
@@ -1512,8 +1525,8 @@ test("非二元蓝读取（Joy≥1）时美妆博主仍可合法打出，且保�
   beauty.players[0].joy = 2;
   beauty.players[0].hand = [{ id: "enby-blue-beauty", name: "美妆博主", kind: "action" }];
 
-  const plays = enumerateLegalActions(beauty).filter((action) => action.cardId === "enby-blue-beauty");
-  assert.equal(plays.length, 1, "非二元蓝读取时只生成一个合法打出动作（否则前端 immediate.length === 1 判定会失败）");
+  const plays = enumerateLegalActions(beauty).filter((action) => action.cardId === "enby-blue-beauty" && !action.fizzle);
+  assert.equal(plays.length, 1, "非二元蓝读取时只生成一个正常打出动作；空出由独立控件处理");
   assert.equal(plays[0].targetId, undefined);
   assert.equal(plays[0].marketCardId, undefined);
   assert.equal(plays[0].presentId, undefined);

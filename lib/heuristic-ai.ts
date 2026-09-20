@@ -649,7 +649,14 @@ function scoreAction(view: VisibleGame, action: SimAction, memory: AiMemory, ran
       : "没有可用于替换的手牌");
   }
 
-  if (action.type === "play" && card) {
+  if (action.type === "play" && card && action.fizzle) {
+    selfValue = -0.45;
+    blockingValue = 0;
+    informationValue = 0;
+    reasons.push("放弃本回合牌效并弃置此牌，仅在正常结算更差时选择");
+  }
+
+  if (action.type === "play" && card && !action.fizzle) {
     if (card.kind === "present") {
       if (target?.id === self.id) {
         selfValue = cardAffinity(card, goal, self) + 0.7;

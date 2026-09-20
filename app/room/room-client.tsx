@@ -205,6 +205,7 @@ function OnlineTable({ room, game, selectedCardId, onSelectCard, onAction, onCon
   const drawActions = availableActions.filter((action) => action.type === "draw-blind" || action.type === "draw-market" || action.type === "skip-draw");
   const deckAction = drawActions.find((action) => action.type === "draw-blind" || action.type === "skip-draw");
   const selectedActions = selectedCardId ? availableActions.filter((action) => action.cardId === selectedCardId) : [];
+  const selectedFizzleAction = selectedActions.find((action) => action.type === "play" && action.fizzle === true);
   const venueConvertActions = availableActions.filter((action) => action.type === "venue-convert");
   const finalPlayPassAction = availableActions.find((action) => action.type === "final-play-pass");
   const beautyActions = availableActions.filter((action) => action.type === "beauty-blogger-play");
@@ -383,13 +384,13 @@ function OnlineTable({ room, game, selectedCardId, onSelectCard, onAction, onCon
     return <button type="button" className={`own-card table-card ${cardClass(card.kind, card.checked)} ${selected ? "is-selected" : ""} ${view.dei && card.name === "职场 Dress Code" ? "is-dei-disabled" : ""}`} aria-disabled={!selectable} tabIndex={selectable ? 0 : -1} onClick={() => {
       if (!selectable) return;
       if (selected) {
-        const immediate = selectedActions.filter((action) => action.targetId === undefined && action.marketCardId === undefined && action.presentId === undefined);
+        const immediate = selectedActions.filter((action) => !action.fizzle && action.targetId === undefined && action.marketCardId === undefined && action.presentId === undefined);
         if (immediate.length === 1) { onAction(immediate[0]); setSelectedTargetId(null); return; }
       }
       onSelectCard(selected ? null : card.id);
       setSelectedTargetId(null);
-    }} title={selected && selectedActions.some((action) => action.targetId === undefined && action.marketCardId === undefined && action.presentId === undefined) ? "再次点击打出" : undefined} key={card.id}><CardFace card={card} /></button>;
-  })}</div>;
+    }} title={selected && selectedActions.some((action) => !action.fizzle && action.targetId === undefined && action.marketCardId === undefined && action.presentId === undefined) ? "再次点击打出" : undefined} key={card.id}><CardFace card={card} /></button>;
+  })}{selectedFizzleAction && selectedHandCard && <button type="button" className="hand-fizzle-action" title="弃置这张牌，不执行牌效" onClick={() => onAction(selectedFizzleAction)}><span>空出</span><small>【{shortName(selectedHandCard.name)}】</small></button>}</div>;
 
   const selfHasDistinctTempIdentity = Boolean(self.tempIdentity && self.tempIdentity !== self.identity);
   const selfReading = (self.tempIdentity ?? self.identity) === "nonbinary" ? self.reading : (self.tempIdentity ?? self.identity);
@@ -456,7 +457,7 @@ function OnlineTable({ room, game, selectedCardId, onSelectCard, onAction, onCon
     </section>
     <section className="personal-table desktop-personal-table">{goalAndStatus()}{ownHand("desktop-own-hand")}</section>
     {goalGuideAnchor && <GoalGuide onboarding={false} targetAnchor={goalGuideAnchor} onClose={() => setGoalGuideAnchor(null)} />}
-    {ruleOpen && <div className="drawer-shade"><aside className="rule-drawer"><header><div><span>HOW TO PLAY</span><h2>怎么玩？</h2></div><button onClick={() => setRuleOpen(false)}>×</button></header><p className="card-effect-gesture card-effect-gesture-mobile-only" role="note">左右滑动查看牌面效果</p><div className="quick-rules"><section><b>回合</b><p>拿 1 张 → 打 1 张</p></section><section><b>呈现</b><p>留在玩家面前；✦ 是检定；服装最多保留一件。</p></section><section><b>行动</b><p>通常结算后弃置；写有“留在你面前”的牌持续生效。</p></section><section><b>场地</b><p>场上同时只有一个，新场地会替换旧场地。</p></section><section><b>读取</b><p>蓝看蓝，粉看粉；非二元二切看读取，三切看白。</p></section><section><b>终局</b><p>明牌与暗牌都拿完后，尚未行动的玩家各打最后一张牌；总分 = 目标得分 + Joy。</p></section></div></aside></div>}
+    {ruleOpen && <div className="drawer-shade"><aside className="rule-drawer"><header><div><span>HOW TO PLAY</span><h2>怎么玩？</h2></div><button onClick={() => setRuleOpen(false)}>×</button></header><p className="card-effect-gesture card-effect-gesture-mobile-only" role="note">左右滑动查看牌面效果</p><div className="quick-rules"><section><b>回合</b><p>拿 1 张 → 打 1 张</p></section><section><b>呈现</b><p>留在玩家面前；✦ 是检定；服装最多保留一件，且不能空出。</p></section><section><b>行动</b><p>通常结算后弃置；写有“留在你面前”的牌持续生效。行动牌可空出：弃置且不结算牌效。</p></section><section><b>场地</b><p>场上同时只有一个，新场地会替换旧场地；场地牌不能空出。</p></section><section><b>读取</b><p>蓝看蓝，粉看粉；非二元二切看读取，三切看白。</p></section><section><b>终局</b><p>明牌与暗牌都拿完后，尚未行动的玩家各打最后一张牌；总分 = 目标得分 + Joy。</p></section></div></aside></div>}
     {view.beautyOffer?.playerId === self.id && (beautyActions.length > 0 || beautyPassAction) && <DecisionOverlay minimized={choiceMinimized} onMinimizedChange={setChoiceMinimized} ariaLabel="美妆博主展示牌选择"><section className="identity-choice-card beauty-blogger-choice">
       <span className="choice-kicker">美妆博主 · {self.name}</span><h2>展示牌堆顶 {view.beautyOffer.revealed.length} 张</h2><p>你可以立即打出其中一张呈现；未选择的牌会按展示顺序置于牌堆底。</p>
       <div className="beauty-reveal-grid compact-card-context">{view.beautyOffer.revealed.map((card) => {

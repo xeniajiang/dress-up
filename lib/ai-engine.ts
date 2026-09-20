@@ -532,7 +532,6 @@ function enumerateCardPlayActions(game: SimGame, actor: SimPlayer, card: SimCard
     }
   } else if (card.name === "换一种活法") {
     others.forEach((target) => pushPlay(actions, card, ` → ${target.name}`, { targetId: target.id }));
-    actions.push({ id: `play:${card.id}:fizzle`, type: "play", label: `空出【${card.name}】`, cardId: card.id, fizzle: true });
   } else if (["迷茫", "真心话大冒险", "学吉他"].includes(card.name)) {
     others.forEach((target) => pushPlay(actions, card, ` → ${target.name}`, { targetId: target.id }));
   } else if (card.name === "detrans") {
@@ -898,8 +897,11 @@ export function enumerateLegalActions(game: SimGame): SimAction[] {
     const forced = game.forcedPlay;
     const actor = game.players[forced.playerId];
     const actions = enumerateCardPlayActions(game, actor, forced.card);
-    if (actions.length) return actions;
-    return [{ id: `play:${forced.card.id}:forced-fizzle`, type: "play", label: `空出【${forced.card.name}】（无合理目标）`, cardId: forced.card.id, fizzle: true }];
+    if (forced.card.kind !== "action") return actions;
+    return [
+      ...actions,
+      { id: `play:${forced.card.id}:forced-fizzle`, type: "play", label: `空出【${forced.card.name}】`, cardId: forced.card.id, fizzle: true },
+    ];
   }
   const actor = game.players[game.active];
   if (game.manzhanPinkPrompt?.playerId === actor.id) return enumerateManzhanPinkMoves(game, actor);
@@ -931,8 +933,11 @@ export function enumerateLegalActions(game: SimGame): SimAction[] {
 
   const playActions = actor.hand.flatMap((card) => {
     const actions = enumerateCardPlayActions(game, actor, card);
-    if (actions.length) return actions;
-    return [{ id: `play:${card.id}:fizzle`, type: "play" as const, label: `空出【${card.name}】（无合理目标）`, cardId: card.id, fizzle: true }];
+    if (card.kind !== "action") return actions;
+    return [
+      ...actions,
+      { id: `play:${card.id}:fizzle`, type: "play" as const, label: `空出【${card.name}】`, cardId: card.id, fizzle: true },
+    ];
   });
   if (game.phase !== "final-play") return playActions;
   return [

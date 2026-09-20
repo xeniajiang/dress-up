@@ -1138,7 +1138,8 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline-color:
 .identity-language i.reading-male { color: #2c67ae; background: #e8f2ff; }
 .identity-language i.reading-female { color: #c63b6f; background: #ffedf4; }
 .identity-language .temp-identity-token, .self-status .temp-identity-token { display: inline-flex; align-items: center; gap: 4px; border: 0; box-shadow: none; font-weight: 800; }
-.identity-language .temp-identity-token b, .self-status .temp-identity-token strong { padding: 0; border: 0; background: transparent; color: currentColor; font-size: 11px; line-height: 1; }
+.self-status .temp-identity-token { padding: 5px 8px; border-radius: 999px; font-size: 9px; line-height: 1; }
+.identity-language .temp-identity-token b, .self-status .temp-identity-token strong { padding: 0; border: 0; background: transparent; color: currentColor; font-size: 1em; line-height: 1; }
 .identity-language .temp-identity-token.identity-female, .self-status .temp-identity-token.identity-female { background: #ffedf4; color: #c63b6f; }
 .identity-language .temp-identity-token.identity-male, .self-status .temp-identity-token.identity-male { background: #e8f2ff; color: #2c67ae; }
 .identity-language .temp-identity-token.identity-nonbinary, .self-status .temp-identity-token.identity-nonbinary { background: #f1eff2; color: #625f6b; }
@@ -1377,6 +1378,10 @@ button.table-card[aria-disabled="true"] { cursor: default; }
 .own-card[aria-disabled="true"] { cursor: default; }
 .own-card[aria-disabled="true"]:hover { transform: none; }
 .own-card.is-selected { transform: translateY(-18px); box-shadow: 0 0 0 5px rgba(139,92,197,.2), 0 15px 28px rgba(35,40,59,.12); }
+.hand-fizzle-action { position: sticky; right: 4px; z-index: 7; flex: 0 0 auto; align-self: flex-start; margin-top: 12px; padding: 7px 10px; border: 1px solid rgba(112,95,132,.22); border-radius: 999px; background: rgba(255,252,249,.94); color: #6d6278; box-shadow: 0 5px 14px rgba(45,36,57,.07); display: inline-flex; align-items: baseline; gap: 3px; cursor: pointer; font: inherit; }
+.hand-fizzle-action:hover { border-color: rgba(112,95,132,.4); color: #403748; background: #fffdfa; }
+.hand-fizzle-action span { font-size: 13px; font-weight: 650; }
+.hand-fizzle-action small { max-width: 84px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 10px; color: #94889d; }
 .own-card .single-card-face .card-art { font-size: 43px; }
 .own-card .split-card-face { margin: -11px; }
 .forced-play-card { border-color: #8b5cc5; box-shadow: 0 0 0 4px rgba(139,92,197,.14), 0 12px 24px rgba(35,40,59,.1); }

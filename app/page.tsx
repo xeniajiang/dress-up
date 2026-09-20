@@ -71,7 +71,7 @@ const TUTORIAL_TIPS: Record<TutorialTipId, { title: string; copy: string }> = {
   "workplace-dress-code": { title: "Dress Code 会检查全场", copy: "它按每名玩家的当前读取结算。拥有【自由职业者】的玩家不受影响；若【职场 DEI】已经生效，本牌完全无效。" },
   "workplace-dei": { title: "DEI 会改变之后的职场规则", copy: "所有未受职场效果豁免的玩家获得 1 Joy，并使本局之后的【职场 Dress Code】无效。自由职业者也不会获得这 1 Joy。" },
   freelancer: { title: "自由职业者退出职场结算", copy: "你立即获得 1 Joy，并将此牌留在面前。此后不受 Dress Code 的惩罚，也不会获得职场 DEI 的 Joy。" },
-  fizzle: { title: "没有合适目标？", copy: "这张牌可以空出，不执行效果。" },
+  fizzle: { title: "不想打这张行动牌？", copy: "行动牌可以空出：弃置且不执行牌效，并结束本次出牌。呈现牌和场地牌不能空出。" },
   response: { title: "响应选择", copy: "你可以先收起窗口查看场上局势，再作决定。" },
   endgame: { title: "终局将近", copy: "暗牌库和明牌库完全耗尽时，由最后一名玩家完成出牌，然后游戏结束。" },
 };
@@ -1037,6 +1037,7 @@ function GameTable({ mode, names, controllers, viewerPlayerId, onExit, startTuto
   const effectiveSelectedCardId = isHumanDecision && forcedHumanCard ? forcedHumanCard.id : selectedCardId;
   const selectedCardPlayActions = playActions.filter((action) => action.cardId === effectiveSelectedCardId);
   const selectedPlayActions = selectedCardPlayActions;
+  const selectedFizzleAction = selectedPlayActions.find((action) => action.fizzle === true);
   const selectedHandCard = forcedHumanCard ?? game.players[viewerSeatId].hand.find((card) => card.id === effectiveSelectedCardId);
   const sharedWardrobeDragMode = isHumanDecision && selectedHandCard?.name === "共享衣橱";
   const sharedWardrobeResponseMode = isHumanDecision && game.sharedWardrobeOffer?.stage === "target-select";
@@ -1075,7 +1076,7 @@ function GameTable({ mode, names, controllers, viewerPlayerId, onExit, startTuto
   const blindDrawAction = drawActions.find((action) => action.type === "draw-blind");
   const skipDrawAction = drawActions.find((action) => action.type === "skip-draw");
   const deckAction = blindDrawAction ?? skipDrawAction;
-  const noTargetPlayActions = selectedPlayActions.filter((action) => action.targetId === undefined && action.marketCardId === undefined && action.presentId === undefined);
+  const noTargetPlayActions = selectedPlayActions.filter((action) => !action.fizzle && action.targetId === undefined && action.marketCardId === undefined && action.presentId === undefined);
 
   const rawTutorialTip = useMemo<TutorialTipId | null>(() => {
     if (!tutorialHistoryLoaded || !tutorialEnabled || tutorialIntroOpen || goalGuideOpen || ruleOpen || mode !== "solo" || game.phase === "ended") return null;
@@ -1155,7 +1156,7 @@ function GameTable({ mode, names, controllers, viewerPlayerId, onExit, startTuto
     if (!isHumanDecision || (game.phase !== "play" && game.phase !== "final-play")) return;
     if (game.forcedPlay && game.forcedPlay.card.id !== cardId) return;
     if (effectiveSelectedCardId === cardId) {
-      const immediate = playActions.filter((action) => action.cardId === cardId && action.targetId === undefined && action.marketCardId === undefined && action.presentId === undefined);
+      const immediate = playActions.filter((action) => action.cardId === cardId && !action.fizzle && action.targetId === undefined && action.marketCardId === undefined && action.presentId === undefined);
       if (immediate.length === 1) { performAction(immediate[0]); return; }
     }
     setSelectedCardId((current) => current === cardId ? null : cardId);
@@ -1336,6 +1337,17 @@ function GameTable({ mode, names, controllers, viewerPlayerId, onExit, startTuto
           </button>
         );
       })}
+      {selectedFizzleAction && selectedHandCard && (
+        <button
+          type="button"
+          className="hand-fizzle-action"
+          title="弃置这张牌，不执行牌效"
+          onClick={() => performAction(selectedFizzleAction)}
+        >
+          <span>空出</span>
+          <small>【{shortName(selectedHandCard.name)}】</small>
+        </button>
+      )}
     </div>
   );
 
@@ -1709,7 +1721,7 @@ function GameTable({ mode, names, controllers, viewerPlayerId, onExit, startTuto
       {ruleView === "quick" && <div className="quick-rules">
         <section><b>回合</b><p>拿 1 张 → 打 1 张</p></section>
         <section><b>呈现</b><p>留在玩家面前；✦ 是检定；服装最多保留一件。</p></section>
-        <section><b>行动</b><p>通常结算后弃置；写有“留在你面前”的牌持续生效。</p></section>
+        <section><b>行动</b><p>通常结算后弃置；写有“留在你面前”的牌持续生效。行动牌可空出：弃置且不结算牌效。</p></section>
         <section><b>场地</b><p>场上同时只有一个，新场地会替换旧场地。</p></section>
         <section><b>读取</b><p>蓝看蓝，粉看粉；非二元二切看读取，三切看白。</p></section>
         <section><b>终局</b><p>明牌与暗牌都拿完后，尚未行动的玩家各打最后一张牌；总分 = 目标得分 + Joy。</p></section>
