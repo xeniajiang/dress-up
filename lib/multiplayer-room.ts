@@ -32,9 +32,11 @@ import type {
   VisualSegment,
 } from "./multiplayer-protocol";
 import { CARD_PLAY_REVEAL_DURATION_MS, TABLE_STATE_ANIMATION_DURATION_MS } from "./ui-timing";
+import { AI_VERSION, appendMatchEvent, createMatchRecord, type MatchRecord } from "./match-record";
 
 export type HumanSeat = {
   playerId: number;
+  websitePlayerId: string;
   name: string;
   controller: "human";
   playerToken: string;
@@ -112,6 +114,7 @@ export type RoomRecord = {
   decisionRecords: DecisionRecord[];
   auditLog: SessionAuditEvent[];
   acceptedRequestIds: string[];
+  matchRecord: MatchRecord | null;
 };
 
 const AI_NAMES = ["花雨", "晓山", "姬姐", "可乐"];
@@ -143,6 +146,7 @@ export function createRoomRecord(roomId: string, now = Date.now()): RoomRecord {
     decisionRecords: [],
     auditLog: [{ at: now, type: "room-created", stateVersion: 0, detail: `创建房间 ${roomId}` }],
     acceptedRequestIds: [],
+    matchRecord: null,
   };
 }
 
@@ -164,6 +168,8 @@ function normalizeRecord(record: RoomRecord): RoomRecord {
   record.decisionRecords ??= [];
   record.auditLog ??= [];
   record.acceptedRequestIds ??= [];
+  record.matchRecord ??= null;
+  record.seats.forEach((seat) => { if (seat.controller === "human") seat.websitePlayerId ??= seat.playerToken; });
   record.seats.forEach((seat) => {
     if (seat.controller !== "human") return;
     seat.controlMode ??= "manual";
@@ -394,14 +400,14 @@ export class MultiplayerRoomCore {
     };
   }
 
-  join(token: string, nickname: string) {
+  join(token: string, nickname: string, websitePlayerId = token) {
     const resumed = this.playerIdForToken(token);
     if (resumed !== undefined) return resumed;
     if (this.record.status !== "lobby") throw new Error("对局已经开始，只有原玩家可以恢复座位。");
     const humanCount = this.record.seats.filter((seat) => seat.controller === "human").length;
     if (humanCount >= 4) throw new Error("房间已满。");
     const playerId = humanCount;
-    this.record.seats.push({ playerId, name: safeName(nickname), controller: "human", playerToken: token, ready: false, controlMode: "manual", online: true, disconnectedSince: null });
+    this.record.seats.push({ playerId, websitePlayerId, name: safeName(nickname), controller: "human", playerToken: token, ready: false, controlMode: "manual", online: true, disconnectedSince: null });
     this.record.hostToken ??= token;
     this.bump();
     return playerId;
@@ -448,6 +454,17 @@ export class MultiplayerRoomCore {
     this.record.seed = Math.floor(random() * 0x1_0000_0000) >>> 0;
     this.record.randomState = this.record.seed || 0x9e3779b9;
     this.record.game = createSimGame(seats.map((seat) => seat.name), () => this.nextRandom(), {}, "online", controllers);
+    this.record.matchRecord = createMatchRecord({
+      game: this.record.game,
+      mode: "multiplayer",
+      matchId: `match_${crypto.randomUUID().replace(/-/g, "")}`,
+      startTime: now,
+      randomSeed: this.record.seed,
+      identities: seats.map((seat) => ({
+        playerId: seat.controller === "human" ? seat.websitePlayerId : `ai:${AI_VERSION}:${seat.playerId}`,
+        displayName: seat.name,
+      })),
+    });
     this.record.memories = createAiMemories(4);
     this.record.status = "playing";
     this.record.startedAt = now;
@@ -696,6 +713,7 @@ export class MultiplayerRoomCore {
   private applyAction(action: SimAction, random = () => this.nextRandom()) {
     const before = this.requireGame();
     const actorId = decisionPlayerId(before);
+    const legalActions = this.legalActionsForCurrentDecision();
     const observerIds = this.humanPlayerIds();
     const beforeSnapshots = Object.fromEntries(observerIds.map((playerId) => [playerId, this.observerSnapshot(playerId)])) as Record<number, ObserverVisualSnapshot>;
     let playAnimation: PlayAnimation | null = null;
@@ -715,6 +733,17 @@ export class MultiplayerRoomCore {
     }
     const beforeView = visibleStateFor(before, actorId);
     const after = applyLegalAction(before, action, random);
+    if (this.record.matchRecord) {
+      const latestDecision = this.record.decisionRecords.at(-1);
+      appendMatchEvent(this.record.matchRecord, {
+        before,
+        after,
+        action,
+        legalActions,
+        controller: this.isAiControlled(actorId) ? "ai" : "human",
+        decisionTimeMs: latestDecision?.actionId === action.id ? latestDecision.durationMs : 0,
+      });
+    }
     const knowledgeEvents = knowledgeEventsFor(before, after, action);
     knowledgeEvents.filter((event) => event.type === "reveal").forEach((event) => {
       (privateReplay[event.observerId] ??= []).push({ type: "PRIVATE_REVEAL", playerId: event.targetId, text: `${after.players[event.targetId].name} 的目标：${event.goal}` });

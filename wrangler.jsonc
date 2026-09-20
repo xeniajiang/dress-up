@@ -38,5 +38,11 @@
       "binding": "VINEXT_KV_CACHE",
       "id": "5bfbb1d65415456ea32c231a204dd33c"
     }
+  ],
+  "r2_buckets": [
+    {
+      "binding": "MATCH_RECORDS",
+      "bucket_name": "dress-up-match-records"
+    }
   ]
 }

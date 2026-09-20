@@ -24,6 +24,8 @@ import {
   type SimPlayer,
 } from "../lib/ai-engine";
 import { CARD_PLAY_REVEAL_DURATION_MS } from "../lib/ui-timing";
+import { AI_VERSION, appendMatchEvent, createMatchRecord, type MatchRecord } from "../lib/match-record";
+import { getOrCreateWebsitePlayerId, retryStoredMatchRecords, storeMatchRecord, uploadMatchRecord } from "../lib/browser-match-storage";
 import {
   applyKnowledgeEvents,
   chooseHeuristicAction,
@@ -708,6 +710,9 @@ function TutorialCoachmark({ tip, cardName, onDismiss, onSkipAll }: { tip: Tutor
 
 function GameTable({ mode, names, controllers, viewerPlayerId, onExit, startTutorial = false }: { mode: Mode; names: string[]; controllers: readonly SimController[]; viewerPlayerId: number | null; onExit: () => void; startTutorial?: boolean }) {
   const [game, setGame] = useState<SimGame>(() => createSimGame(names, Math.random, {}, mode, controllers));
+  const initialGameForRecordRef = useRef(game);
+  const matchRecordRef = useRef<MatchRecord | null>(null);
+  const decisionStartedAtRef = useRef(0);
   const [memories, setMemories] = useState<AiMemory[]>(() => createAiMemories(4));
   // 单人局始终保持自动推进开启；教学、玩家决策和牌效窗口只临时阻止调度。
   // 不再用 running 表示这些瞬时阻塞，避免场地追加决策与教学关闭之间产生恢复竞态。
@@ -743,6 +748,31 @@ function GameTable({ mode, names, controllers, viewerPlayerId, onExit, startTuto
   const [dragOverTargetId, setDragOverTargetId] = useState<number | null>(null);
   const resultStageRef = useRef<HTMLDivElement>(null);
   const [resultScale, setResultScale] = useState<number | null>(null);
+
+  const beginMatchRecord = useCallback((initialGame: SimGame) => {
+    const websitePlayerId = typeof window === "undefined" ? "player_pending" : getOrCreateWebsitePlayerId();
+    matchRecordRef.current = createMatchRecord({
+      game: initialGame,
+      mode: mode === "solo" ? "single" : "spectator",
+      identities: initialGame.players.map((player) => ({
+        playerId: player.controller === "human" ? websitePlayerId : `ai:${AI_VERSION}:${player.id}`,
+        displayName: player.name,
+      })),
+    });
+    decisionStartedAtRef.current = Date.now();
+    void storeMatchRecord(matchRecordRef.current);
+  }, [mode]);
+
+  useEffect(() => {
+    if (!matchRecordRef.current) beginMatchRecord(initialGameForRecordRef.current);
+    void retryStoredMatchRecords();
+  }, [beginMatchRecord]);
+
+  useEffect(() => {
+    const flush = () => { if (matchRecordRef.current) void uploadMatchRecord(matchRecordRef.current, true).catch(() => undefined); };
+    window.addEventListener("pagehide", flush);
+    return () => window.removeEventListener("pagehide", flush);
+  }, []);
 
   useEffect(() => {
     if (mode !== "solo") return;
@@ -880,6 +910,20 @@ function GameTable({ mode, names, controllers, viewerPlayerId, onExit, startTuto
         return before;
       }
       const after = applyLegalAction(before, chosen);
+      const record = matchRecordRef.current;
+      if (record) {
+        appendMatchEvent(record, {
+          before,
+          after,
+          action: chosen,
+          legalActions: actions,
+          controller: actorController,
+          decisionTimeMs: actorController === "human" ? Date.now() - decisionStartedAtRef.current : 0,
+        });
+        const shouldUpload = after.phase === "ended" || record.events.length % 5 === 0;
+        void (shouldUpload ? uploadMatchRecord(record) : storeMatchRecord(record)).catch(() => undefined);
+      }
+      decisionStartedAtRef.current = Date.now();
       if (chosen.type === "fitting-room-fizzle" && before.fittingRoomOffer) {
         setFittingRoomNotice({ actorId: before.fittingRoomOffer.actorId, version: Date.now() });
       }
@@ -963,7 +1007,9 @@ function GameTable({ mode, names, controllers, viewerPlayerId, onExit, startTuto
   }, [fittingRoomNotice]);
 
   const restart = () => {
-    setGame(createSimGame(names, Math.random, {}, mode, controllers));
+    const nextGame = createSimGame(names, Math.random, {}, mode, controllers);
+    setGame(nextGame);
+    beginMatchRecord(nextGame);
     setMemories(createAiMemories(4));
     setStepCount(0);
     setRunning(true);

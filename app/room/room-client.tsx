@@ -24,6 +24,7 @@ import { compareFinalStanding, finalScoreBreakdown, projectedScore, sharesFinalS
 import type { GameStateMessage, ObserverVisualSnapshot, PlayAnimation, RoomStateMessage, ServerMessage, VisualSegment } from "../../lib/multiplayer-protocol";
 import { shouldAcceptGameState } from "../../lib/multiplayer-protocol";
 import { CARD_PLAY_REVEAL_DURATION_MS } from "../../lib/ui-timing";
+import { getOrCreateWebsitePlayerId } from "../../lib/browser-match-storage";
 
 const tokenKey = (roomId: string) => `dress-up:room:${roomId}:token`;
 const nameKey = "dress-up:multiplayer-name";
@@ -57,7 +58,7 @@ export default function RoomClient({ roomId }: { roomId: string }) {
     socketRef.current = socket;
     socket.addEventListener("open", () => {
       setConnection("connected");
-      socket.send(JSON.stringify({ type: "JOIN", playerToken: token, nickname: name || "欣娅" }));
+      socket.send(JSON.stringify({ type: "JOIN", playerToken: token, websitePlayerId: getOrCreateWebsitePlayerId(), nickname: name || "欣娅" }));
     });
     socket.addEventListener("message", (event) => {
       const message = JSON.parse(String(event.data)) as ServerMessage;

@@ -135,7 +135,7 @@ export type ServerMessage =
   | { type: "ERROR"; message: string };
 
 export type ClientMessage =
-  | { type: "JOIN" | "RESUME"; playerToken: string; nickname: string }
+  | { type: "JOIN" | "RESUME"; playerToken: string; websitePlayerId: string; nickname: string }
   | { type: "READY"; ready: boolean }
   | { type: "START_GAME" }
   | { type: "ACTION"; actionId: string; requestId: string; expectedStateVersion: number }

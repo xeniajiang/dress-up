@@ -320,6 +320,21 @@ wrangler.jsonc
 
 ---
 
+## 对局数据记录
+
+单机与联机均生成统一的 `MatchRecord`。单机会先写入 IndexedDB，并每 5 次决策及结算时上传；联机由 Durable Object 统一写入，避免多个客户端重复上报。完整 JSON 保存到 R2 的 `matches/` 前缀下。
+
+本地开发使用 Wrangler 的本地 R2 模拟。部署前需创建名为 `dress-up-match-records` 的 R2 bucket，或同步修改 `wrangler.jsonc` 中的 bucket 名称。
+
+私有查看页为 `/admin/matches`。本地地址直接允许访问；线上必须配置以下至少一项：
+
+- `ADMIN_USER_IDS`：逗号分隔的管理员用户 ID，与 `oai-authenticated-user-id` 请求头匹配；
+- `ADMIN_TOKEN`：后台页使用的 Bearer token。
+
+后台支持按玩家 ID、规则版本和模式筛选、查看事件 Log、查看 raw JSON，以及下载单局 JSON 或全部 NDJSON。
+
+---
+
 ## 关于这个项目
 
 **dress-up!** 试图把性别呈现与社会读取变成真正能够操作、交换、推测和博弈的桌面机制。

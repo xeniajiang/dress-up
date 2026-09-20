@@ -3,6 +3,12 @@ import type { ClientMessage, ServerMessage } from "../lib/multiplayer-protocol";
 
 type SocketAttachment = { playerToken?: string };
 
+interface MatchBucketLike {
+  put(key: string, value: string, options?: { httpMetadata?: { contentType?: string }; customMetadata?: Record<string, string> }): Promise<unknown>;
+}
+
+interface GameRoomEnv { MATCH_RECORDS?: MatchBucketLike }
+
 interface DurableSocket extends WebSocket {
   serializeAttachment(value: SocketAttachment): void;
   deserializeAttachment(): SocketAttachment | null;
@@ -26,7 +32,7 @@ declare const WebSocketPair: {
 export class GameRoom {
   private core: MultiplayerRoomCore | null = null;
 
-  constructor(private state: DurableStateLike) {}
+  constructor(private state: DurableStateLike, private env: GameRoomEnv = {}) {}
 
   async fetch(request: Request): Promise<Response> {
     const url = new URL(request.url);
@@ -58,7 +64,7 @@ export class GameRoom {
       const attachment = socket.deserializeAttachment() ?? {};
       if (message.type === "JOIN" || message.type === "RESUME") {
         if (!/^[a-f0-9-]{20,80}$/i.test(message.playerToken)) throw new Error("无效的玩家凭证。");
-        this.core.join(message.playerToken, message.nickname);
+        this.core.join(message.playerToken, message.nickname, message.websitePlayerId);
         for (const existing of this.state.getWebSockets()) {
           if (existing !== socket && existing.deserializeAttachment()?.playerToken === message.playerToken) existing.close(4001, "已在新连接恢复");
         }
@@ -113,7 +119,15 @@ export class GameRoom {
   }
 
   private async save() {
-    if (this.core) await this.state.storage.put("room", this.core.record);
+    if (!this.core) return;
+    await this.state.storage.put("room", this.core.record);
+    const match = this.core.record.matchRecord;
+    if (match && this.env.MATCH_RECORDS) {
+      await this.env.MATCH_RECORDS.put(`matches/${match.matchInfo.matchId}.json`, JSON.stringify(match), {
+        httpMetadata: { contentType: "application/json; charset=utf-8" },
+        customMetadata: { mode: match.matchInfo.mode, rulesVersion: match.matchInfo.rulesVersion, completed: String(match.matchInfo.completed) },
+      });
+    }
   }
 
   private connectedTokens() {
