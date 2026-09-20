@@ -210,6 +210,7 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 2px s
 .card-cream { background: var(--cream); }
 .card-white { background: #f7f7f2; }
 .card-ink { background: var(--ink-3); color: var(--cream); border: 1px solid rgba(246,240,223,.35); }
+.card-identity { background: var(--ink-3); color: var(--cream); border: 1px solid rgba(246,240,223,.35); }
 .table-card .card-no { position: absolute; right: 11px; top: 11px; font: 1000 10px/1 monospace; opacity: .55; }
 .table-card > small { font: 900 8px/1 monospace; letter-spacing: .12em; text-transform: uppercase; }
 .table-card h3 { font-size: clamp(13px, 1.3vw, 19px); line-height: 1.12; letter-spacing: -.04em; margin: 48% 0 0; position: relative; z-index: 1; overflow-wrap: anywhere; }
@@ -940,6 +941,7 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline-color:
 .card-cream { color: #50445a; background: #faf7fb; }
 .card-white { color: #67499b; background: #f8f4ff; }
 .card-ink { color: #514565; background: #f5f0fa; border-color: #8f79ae; }
+.card-identity { color: #514565; background: #f5f0fa; border-color: #8f79ae; }
 .table-card .card-no { color: currentColor; }
 .table-card > small { color: currentColor; opacity: .72; }
 .card-art { min-height: 54%; display: grid; place-items: center; font-size: clamp(29px, 3.2vw, 52px); font-style: normal; line-height: 1; text-align: center; color: currentColor; }

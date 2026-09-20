@@ -10,7 +10,7 @@ export type SimRuleOverrides = { shopOwnerCap?: number; shopOwnerScoring?: ShopO
 export type SimCard = {
   id: string;
   name: string;
-  kind: "present" | "action" | "venue";
+  kind: "present" | "action" | "identity" | "venue";
   checked?: boolean;
   dress?: boolean;
   clothing?: boolean;
@@ -197,7 +197,7 @@ const CARD_SPECS: Array<Omit<SimCard, "id"> & { count: number }> = [
   { name: "亚文化裙裤", count: 4, kind: "present", checked: true, dress: true, clothing: true },
   { name: "亲戚给的宽大卫衣", count: 4, kind: "present", clothing: true },
   { name: "皱巴巴的格子衬衫", count: 2, kind: "present", clothing: true },
-  { name: "她", count: 3, kind: "action" }, { name: "他", count: 2, kind: "action" },
+  { name: "她", count: 3, kind: "identity" }, { name: "他", count: 2, kind: "identity" },
   { name: "理发", count: 1, kind: "action" }, { name: "卸甲", count: 1, kind: "action" },
   { name: "共享衣橱", count: 1, kind: "action" }, { name: "翻箱倒柜", count: 1, kind: "action" },
   { name: "心动夸夸", count: 2, kind: "action" },
@@ -514,8 +514,12 @@ function enumerateCardPlayActions(game: SimGame, actor: SimPlayer, card: SimCard
         presentId: present.id,
         targetId: target.id,
       })));
-  } else if (card.name === "打烊" || card.name === "爱美之心") {
+  } else if (card.name === "打烊") {
     game.market.forEach((marketCard) => pushPlay(actions, card, ` → 【${marketCard.name}】`, { marketCardId: marketCard.id }));
+  } else if (card.name === "爱美之心") {
+    game.market
+      .filter((marketCard) => marketCard.kind === "action" || enumerateCardPlayActions(game, actor, marketCard).length > 0)
+      .forEach((marketCard) => pushPlay(actions, card, ` → 【${marketCard.name}】`, { marketCardId: marketCard.id }));
   } else if (card.name === "闺蜜试衣间") {
     others.forEach((target) => pushPlay(actions, card, ` → 与 ${target.name} 试衣`, { targetId: target.id }));
   } else if (card.name === "伪娘团") {
@@ -900,7 +904,7 @@ export function enumerateLegalActions(game: SimGame): SimAction[] {
     if (forced.card.kind !== "action") return actions;
     return [
       ...actions,
-      { id: `play:${forced.card.id}:forced-fizzle`, type: "play", label: `空出【${forced.card.name}】`, cardId: forced.card.id, fizzle: true },
+      { id: `play:${forced.card.id}:fizzle`, type: "play" as const, label: `空出【${forced.card.name}】`, cardId: forced.card.id, fizzle: true },
     ];
   }
   const actor = game.players[game.active];

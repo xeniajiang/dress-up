@@ -71,7 +71,7 @@ const TUTORIAL_TIPS: Record<TutorialTipId, { title: string; copy: string }> = {
   "workplace-dress-code": { title: "Dress Code 会检查全场", copy: "它按每名玩家的当前读取结算。拥有【自由职业者】的玩家不受影响；若【职场 DEI】已经生效，本牌完全无效。" },
   "workplace-dei": { title: "DEI 会改变之后的职场规则", copy: "所有未受职场效果豁免的玩家获得 1 Joy，并使本局之后的【职场 Dress Code】无效。自由职业者也不会获得这 1 Joy。" },
   freelancer: { title: "自由职业者退出职场结算", copy: "你立即获得 1 Joy，并将此牌留在面前。此后不受 Dress Code 的惩罚，也不会获得职场 DEI 的 Joy。" },
-  fizzle: { title: "不想打这张行动牌？", copy: "行动牌可以空出：弃置且不执行牌效，并结束本次出牌。呈现牌和场地牌不能空出。" },
+  fizzle: { title: "不想打这张行动牌？", copy: "行动牌可以空出：弃置且不执行牌效，并结束本次出牌。呈现牌、身份牌和场地牌不能空出。" },
   response: { title: "响应选择", copy: "你可以先收起窗口查看场上局势，再作决定。" },
   endgame: { title: "终局将近", copy: "暗牌库和明牌库完全耗尽时，由最后一名玩家完成出牌，然后游戏结束。" },
 };
@@ -200,6 +200,7 @@ function venueCardImagePosition(name: string) {
 export function cardClass(kind: string, checked?: boolean) {
   if (kind === "present") return checked ? "card-pink" : "card-cream";
   if (kind === "venue") return "card-white";
+  if (kind === "identity") return "card-identity";
   return "card-ink";
 }
 
@@ -399,7 +400,7 @@ function cardEffectCopy(name: string) {
     不支持不反对: "移除场上所有未连接一名男性与一名女性的心动标记。被移除关系的双方各失去 1 Joy；每名玩家因本牌至多失去 1 Joy。",
     地雷系: "将此牌留在你面前。每当另一名玩家对你使用一张牌时，其失去 1 Joy。",
     打烊: "弃置一张公共牌，然后补满公共牌列。",
-    爱美之心: "获得一张公共牌并立即打出；不进入手牌。",
+    爱美之心: "获得一张可以打出的公共牌并立即打出。",
     迷茫: "目标支付 1 Joy 取消；否则弃一张呈现或跳过下回合。",
     换一种活法: "与另一名玩家交换隐藏目标。你也可以空出此牌，不交换目标。",
     detrans: "对自己使用。移除最上层长期身份标记，恢复为下方记录的长期身份。若恢复非二元，同时恢复该层记录的二元读取；不清除临时身份。【改好证了！】会阻止本牌。",
@@ -475,7 +476,7 @@ function CardFront({ card }: { card: SimCard }) {
   const isVenueImage = Boolean(venueSrc);
   const isPronounPin = card.name === "她" || card.name === "他";
   return <div className={`single-card-face ${card.kind === "present" ? "bare-present" : ""} ${isVenueImage ? "venue-card-face" : ""}`}>
-    {card.kind !== "present" && <small>{card.kind === "venue" ? "场地" : "行动"}</small>}
+    {card.kind !== "present" && <small>{card.kind === "venue" ? "场地" : card.kind === "identity" ? "身份" : "行动"}</small>}
     <div className={`card-art ${imageSrc ? "has-card-image" : ""} ${isVenueImage ? "has-venue-image" : ""}`} title={imageSrc ? undefined : "卡牌插画占位"}>{imageSrc ? <span className={isVenueImage ? "venue-art-image" : `presentation-art-image${isPronounPin ? " pronoun-pin-art" : ""}`} style={{ backgroundImage: `url(${imageSrc})`, ...(isVenueImage ? { backgroundPosition: venueCardImagePosition(card.name) } : {}) }} aria-hidden="true" /> : cardGlyph(card.name)}</div>
     {isVenueImage ? <footer><h3>{card.name}</h3></footer> : <h3>{card.name}</h3>}
     {card.checked && <b className="check-mark" aria-label="计入检定"><CheckPip /></b>}
@@ -1721,7 +1722,8 @@ function GameTable({ mode, names, controllers, viewerPlayerId, onExit, startTuto
       {ruleView === "quick" && <div className="quick-rules">
         <section><b>回合</b><p>拿 1 张 → 打 1 张</p></section>
         <section><b>呈现</b><p>留在玩家面前；✦ 是检定；服装最多保留一件。</p></section>
-        <section><b>行动</b><p>通常结算后弃置；写有“留在你面前”的牌持续生效。行动牌可空出：弃置且不结算牌效。</p></section>
+        <section><b>行动</b><p>通常结算后弃置；写有“留在你面前”的牌持续生效。行动牌可以空出。</p></section>
+        <section><b>身份</b><p>【她】【他】改变长期公开身份；身份牌不能空出。</p></section>
         <section><b>场地</b><p>场上同时只有一个，新场地会替换旧场地。</p></section>
         <section><b>读取</b><p>蓝看蓝，粉看粉；非二元二切看读取，三切看白。</p></section>
         <section><b>终局</b><p>明牌与暗牌都拿完后，尚未行动的玩家各打最后一张牌；总分 = 目标得分 + Joy。</p></section>
@@ -1743,15 +1745,17 @@ function GameTable({ mode, names, controllers, viewerPlayerId, onExit, startTuto
           先从牌堆顶暗摸 1 张，或从公共牌列拿 1 张；公共牌列会补至 3 张。
           然后从手牌打出 1 张牌，选择合法目标并完整结算。
         </p>
-        <p>如果一张牌当前没有任何合法目标，可以直接弃置它并结束回合。</p>
+        <p>行动牌可以选择空出：直接弃置、不结算牌效并结束本次出牌。呈现牌、身份牌和场地牌不能空出。</p>
       </section>
 
       <section>
-        <b>三类牌</b>
+        <b>四类牌</b>
         <p>
           <strong>呈现牌</strong>留在玩家面前；部分呈现带有 ✦，部分属于服装。
           <br />
           <strong>行动牌</strong>结算效果后弃置；部分行动会留下物件或标记。
+          <br />
+          <strong>身份牌</strong>改变玩家的长期公开身份；【她】【他】属于身份牌。
           <br />
           <strong>场地牌</strong>影响全桌；场上同时最多存在 1 个场地。
         </p>

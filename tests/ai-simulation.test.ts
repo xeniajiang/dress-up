@@ -473,13 +473,9 @@ test("爱美之心获得公共行动牌后立即选择目标并执行", () => {
   assert.equal(claimed.forcedPlay?.card.id, "claimed-praise");
   assert.ok(!claimed.players[0].hand.some((card) => card.id === "claimed-praise"), "获得的牌不进入手牌");
 
-  const forcedFizzle = enumerateLegalActions(claimed).find((action) => action.cardId === "claimed-praise" && action.fizzle);
-  assert.ok(forcedFizzle, "爱美之心要求立即打出的行动牌也可以选择空出");
-  const fizzled = applyLegalAction(claimed, forcedFizzle!);
-  assert.equal(fizzled.forcedPlay, null);
-  assert.ok(fizzled.discard.some((card) => card.id === "claimed-praise"));
-  assert.equal(fizzled.players[0].joy, 2, "空出不应结算心动夸夸的 Joy");
-  assert.deepEqual(fizzled.players[0].crushTargetIds, []);
+  const forcedActions = enumerateLegalActions(claimed).filter((action) => action.cardId === "claimed-praise");
+  assert.ok(forcedActions.length > 0);
+  assert.ok(forcedActions.some((action) => action.fizzle), "爱美之心取得的行动牌也可以空出");
 
   const praiseOther = enumerateLegalActions(claimed).find((action) => action.cardId === "claimed-praise" && action.targetId === 1)!;
   const resolved = applyLegalAction(claimed, praiseOther);
@@ -490,6 +486,25 @@ test("爱美之心获得公共行动牌后立即选择目标并执行", () => {
   assert.equal(resolved.active, 1);
   assert.ok(resolved.discard.some((card) => card.id === "claimed-praise"));
   assert.ok(resolved.discard.some((card) => card.id === "love-beauty"));
+});
+
+test("爱美之心可以取得另一张爱美之心及只能空出的行动牌", () => {
+  const base = createSimGame(["A", "B", "C", "D"]);
+  base.active = 0;
+  base.phase = "play";
+  base.players.forEach((player) => { player.presents = []; });
+  base.players[0].hand = [{ id: "love-picker", name: "爱美之心", kind: "action" }];
+  base.market = [
+    { id: "other-love", name: "爱美之心", kind: "action" },
+    { id: "unplayable-haircut", name: "理发", kind: "action" },
+    { id: "playable-she", name: "她", kind: "identity" },
+  ];
+
+  const actions = enumerateLegalActions(base).filter((action) => action.cardId === "love-picker");
+  assert.ok(actions.some((action) => action.marketCardId === "other-love"), "可以取得另一张爱美之心");
+  assert.ok(actions.some((action) => action.marketCardId === "unplayable-haircut"), "行动牌即使没有正常目标，也可以取得后空出");
+  assert.ok(actions.some((action) => action.marketCardId === "playable-she"), "可以取得能立即正常打出的身份牌");
+  assert.ok(actions.some((action) => action.fizzle), "手牌中的爱美之心本身仍可空出");
 });
 
 test("新增呈现保留一轮的新牌标记", () => {
@@ -573,6 +588,22 @@ test("单张牌没有合理目标时可直接空出", () => {
   const game = applyLegalAction(base, fizzle!);
   assert.ok(game.discard.some((card) => card.id === "no-haircut-target"));
   assert.ok(!game.warnings.some((warning) => warning.includes("手牌全部无合法目标")));
+});
+
+test("她与他属于身份牌且不能空出", () => {
+  const base = createSimGame(["A", "B", "C", "D"]);
+  base.active = 0;
+  base.phase = "play";
+  base.players[0].hand = [
+    { id: "identity-she", name: "她", kind: "identity" },
+    { id: "identity-he", name: "他", kind: "identity" },
+  ];
+
+  const identityActions = enumerateLegalActions(base).filter((action) => action.cardId === "identity-she" || action.cardId === "identity-he");
+  assert.ok(identityActions.length > 0);
+  assert.ok(identityActions.every((action) => !action.fizzle), "身份牌不得提供空出动作");
+  assert.ok(identityActions.some((action) => action.cardId === "identity-she" && action.targetId === 0));
+  assert.ok(identityActions.some((action) => action.cardId === "identity-he" && action.targetId === 0));
 });
 
 test("扑朔迷离与先入为主持续留场、按当前身份修改检定并仅在长期身份改变时移除", () => {

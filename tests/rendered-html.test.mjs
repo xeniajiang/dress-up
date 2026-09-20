@@ -30,10 +30,10 @@ test("server-renders the dress-up prototype landing page", async () => {
 
   const html = await response.text();
   assert.match(html, /<html lang="zh-CN">/i);
-  assert.match(html, /DRESS-UP! · 四人身份卡牌游戏/i);
+  assert.match(html, /dress-up! · 酷酷衣柜/i);
   assert.match(html, /4 AI 观战/);
   assert.match(html, /1 人 \+ 3 AI/);
-  assert.match(html, /酷<\/span>装登场/);
+  assert.match(html, /title-ku-first">酷<\/span><span class="title-ku title-ku-second">酷<\/span><span class="title-wardrobe">衣柜/);
   assert.match(html, /性别探索/);
   assert.match(html, /国内首款性别表达主题桌游/);
   assert.match(html, /开始观战/);
@@ -41,7 +41,7 @@ test("server-renders the dress-up prototype landing page", async () => {
   assert.doesNotMatch(html, /Your site is taking shape|Building your site/);
 });
 
-test("keeps local game modes, three card categories, and metadata in the application source", async () => {
+test("keeps local game modes, four card categories, and metadata in the application source", async () => {
   const [page, layout, styles, engine] = await Promise.all([
     readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/layout.tsx", import.meta.url), "utf8"),
@@ -114,15 +114,15 @@ test("keeps local game modes, three card categories, and metadata in the applica
   assert.match(page, /BINARY_EFFECT_CARDS = new Set\(\["美妆博主", "你pass吗？", "老男人看了你一眼", "职场 Dress Code"\]\)/);
   assert.match(page, /TERNARY_EFFECT_CARDS = new Set\(\["扑朔迷离", "先入为主"\]\)/);
   assert.doesNotMatch(page, /还好试了一下/);
-  assert.match(engine, /kind: "present" \| "action" \| "venue";/);
-  assert.match(engine, /name: "她", count: 3, kind: "action"/);
-  assert.match(engine, /name: "他", count: 2, kind: "action"/);
-  assert.doesNotMatch(engine, /kind: "(?:identity|binary|object|social|workplace|ternary)"/);
+  assert.match(engine, /kind: "present" \| "action" \| "identity" \| "venue";/);
+  assert.match(engine, /name: "她", count: 3, kind: "identity"/);
+  assert.match(engine, /name: "他", count: 2, kind: "identity"/);
+  assert.doesNotMatch(engine, /kind: "(?:binary|object|social|workplace|ternary)"/);
   assert.doesNotMatch(styles, /\.card-(?:blue|split)\s*\{/);
   assert.match(styles, /\.temp-identity-token/);
   assert.match(styles, /\.tabletop-shell\s*\{[\s\S]*?height:\s*100dvh;[\s\S]*?overflow-y:\s*hidden;/);
   assert.match(styles, /overscroll-behavior:\s*none;/);
-  assert.match(layout, /DRESS-UP! · 四人身份卡牌游戏/);
+  assert.match(layout, /dress-up! · 酷酷衣柜/);
   assert.match(layout, /lang="zh-CN"/);
 });
 

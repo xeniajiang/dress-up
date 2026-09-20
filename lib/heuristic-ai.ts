@@ -629,7 +629,7 @@ function scoreAction(view: VisibleGame, action: SimAction, memory: AiMemory, ran
 
   if (action.type === "certificate-pass") {
     selfValue = 0.65;
-    const she = { id: "certificate-she", name: "她", kind: "action" as const };
+    const she = { id: "certificate-she", name: "她", kind: "identity" as const };
     const bestOpponentNeed = view.players.filter((player) => player.id !== self.id)
       .reduce((best, player) => Math.max(best, expectedCardAffinity(she, player, memory, player.id)), 0);
     blockingValue = -bestOpponentNeed * 0.45;
@@ -637,7 +637,7 @@ function scoreAction(view: VisibleGame, action: SimAction, memory: AiMemory, ran
   }
   if (action.type === "certificate-claim") {
     const discarded = view.selfHand.find((card) => card.id === action.cardId);
-    const she = { id: "certificate-she", name: "她", kind: "action" as const };
+    const she = { id: "certificate-she", name: "她", kind: "identity" as const };
     const gainedValue = cardAffinity(she, goal, self);
     const discardedValue = discarded ? cardAffinity(discarded, goal, self) : 4;
     selfValue = gainedValue - discardedValue - 0.25;
