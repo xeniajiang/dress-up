@@ -1121,6 +1121,7 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline-color:
 .player-name h2 { margin: 0; font-size: 17px; }
 .player-name-line { display: flex; align-items: center; gap: 6px; min-height: 21px; margin-bottom: 6px; }
 .crush-markers { display: inline-flex; align-items: center; gap: 3px; min-width: 0; }
+.self-status .self-crush-markers { display: none; flex: 0 1 auto; flex-wrap: wrap; }
 .identity-language { display: flex; flex-wrap: wrap; gap: 5px; }
 .identity-language span, .identity-language i { padding: 4px 7px; border-radius: 999px; font-size: 9px; line-height: 1; font-style: normal; background: #f0edf2; color: #525765; }
 .identity-history-stack { display: inline-flex; align-items: center; isolation: isolate; }
@@ -3594,6 +3595,10 @@ button.table-card[aria-disabled="true"] { cursor: default; }
     background: rgba(244, 239, 249, .72);
   }
 
+  .mobile-personal-summary .self-crush-markers {
+    display: inline-flex;
+  }
+
   .mobile-personal-summary .goal-card-object {
     width: 100%;
     min-height: 0;
@@ -3672,6 +3677,21 @@ button.table-card[aria-disabled="true"] { cursor: default; }
     width: 100%;
     grid-template-columns: 32px minmax(0, 1fr) auto;
     gap: 6px;
+  }
+
+  .tabletop-arena .player-grid .player-name,
+  .tabletop-arena .player-grid .player-name-line {
+    min-width: 0;
+  }
+
+  .tabletop-arena .player-grid .player-name-line {
+    flex-wrap: wrap;
+    row-gap: 3px;
+  }
+
+  .tabletop-arena .player-grid .crush-markers {
+    max-width: 100%;
+    flex-wrap: wrap;
   }
 
   .tabletop-arena .player-grid .player-objects {
@@ -3775,6 +3795,7 @@ button.table-card[aria-disabled="true"] { cursor: default; }
   .mobile-own-hand .own-card { flex: 0 0 118px; width: 118px; min-width: 118px; max-width: 118px; height: 176px; min-height: 176px; }
   .tabletop-arena .mobile-personal-summary { order: 3; width: 100%; display: flex; flex-direction: column; gap: 7px; }
   .mobile-personal-summary .self-status { order: -1; min-height: 34px; padding: 6px 9px; display: flex; align-items: center; gap: 6px; border-radius: 11px; background: rgba(244,239,249,.72); }
+  .mobile-personal-summary .self-crush-markers { display: inline-flex; }
   .mobile-personal-summary .goal-card-object { width: 100%; min-height: 0; padding: 12px 13px; transform: none; }
   .desktop-personal-table { display: none !important; }
 
@@ -3784,6 +3805,10 @@ button.table-card[aria-disabled="true"] { cursor: default; }
   .tabletop-arena .player-grid .player-zone.viewer-player .player-core { display: none !important; }
   .tabletop-arena .player-grid .player-zone.viewer-player .player-objects { width: 100% !important; margin-top: 0 !important; }
   .tabletop-arena .player-grid .player-zone { width: 100% !important; height: auto !important; min-height: 76px !important; padding: 8px 102px 8px 4px !important; overflow: hidden !important; }
+  .tabletop-arena .player-grid .player-name,
+  .tabletop-arena .player-grid .player-name-line { min-width: 0; }
+  .tabletop-arena .player-grid .player-name-line { flex-wrap: wrap; row-gap: 3px; }
+  .tabletop-arena .player-grid .crush-markers { max-width: 100%; flex-wrap: wrap; }
   .tabletop-arena .player-grid .player-objects { width: 100% !important; min-height: 0 !important; height: auto !important; margin-top: 6px !important; padding: 1px !important; display: flex !important; flex-wrap: nowrap !important; gap: 5px !important; overflow-x: auto !important; overflow-y: hidden !important; }
   .tabletop-arena .player-grid .player-objects:empty { display: none !important; }
   .tabletop-arena .player-grid .goal-object { top: 9px; right: 58px; bottom: auto; left: auto; width: 30px; height: 42px; }

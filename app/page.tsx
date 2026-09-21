@@ -1398,12 +1398,13 @@ function GameTable({ mode, names, controllers, viewerPlayerId, onExit, startTuto
     </div>
   );
 
+  const humanCrushGivers = game.players.filter((giver) => giver.crushTargetIds.includes(humanPlayer.id));
   const renderGoalAndSelfStatus = () => <>
     <aside className={`goal-card-object ${goalGuideReturnPulse ? "is-guide-return" : ""}`}>
       <header><small>你的目标</small><strong>{humanPlayer.goal}</strong><button className="goal-guide-trigger" type="button" onClick={(event) => { const rect = event.currentTarget.getBoundingClientRect(); setGoalGuideAnchor({ x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 }); setGoalGuideOnboarding(false); setGoalGuideOpen(true); }}>五种目标</button></header>
       <div>{humanCriteria.map((criterion) => <p className={criterion.done ? "is-done" : ""} key={criterion.text}><span>{criterion.done ? "✓ " : "□ "}{criterion.text}</span><b>{criterion.points}</b></p>)}</div>
     </aside>
-    <div className="self-status"><IdentityHistoryStack player={humanPlayer} superseded={humanHasDistinctTempIdentity} />{humanHasDistinctTempIdentity && <span className={`temp-identity-token identity-${humanPlayer.tempIdentity}`} title="临时身份持续至自己的下回合结束"><strong aria-label="临时身份">◷</strong>{humanPlayer.tempIdentity === "male" ? "男性" : humanPlayer.tempIdentity === "female" ? "女性" : `非二元 · ${humanReading === "male" ? "蓝" : "粉"}读取`}</span>}<b className="self-check-count" aria-label={`${simChecks(humanPlayer)} 个检定`}><CheckPip />{simChecks(humanPlayer)}</b><b>Joy {humanPlayer.joy} ☺</b></div>
+    <div className="self-status"><IdentityHistoryStack player={humanPlayer} superseded={humanHasDistinctTempIdentity} />{humanHasDistinctTempIdentity && <span className={`temp-identity-token identity-${humanPlayer.tempIdentity}`} title="临时身份持续至自己的下回合结束"><strong aria-label="临时身份">◷</strong>{humanPlayer.tempIdentity === "male" ? "男性" : humanPlayer.tempIdentity === "female" ? "女性" : `非二元 · ${humanReading === "male" ? "蓝" : "粉"}读取`}</span>}<b className="self-check-count" aria-label={`${simChecks(humanPlayer)} 个检定`}><CheckPip />{simChecks(humanPlayer)}</b><b>Joy {humanPlayer.joy} ☺</b>{humanCrushGivers.length > 0 && <div className="crush-markers self-crush-markers" aria-label="收到的心动标记">{humanCrushGivers.map((giver) => <span className="crush-marker-token" title={`来自 ${giver.name} 的心动标记`} aria-label={`来自 ${giver.name} 的心动标记`} key={`self-crush-${giver.id}`}><b>♥</b><small>{giver.name}</small></span>)}</div>}</div>
   </>;
 
   return (
